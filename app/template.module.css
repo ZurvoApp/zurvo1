@@ -1,0 +1,20 @@
+/* Route transition = OPACITY ONLY. This is not a stylistic choice.
+   An element animating `transform` (or `filter`) becomes the containing block
+   for its `position: fixed` descendants — which would silently re-anchor the
+   bottom nav and the trip-detail price rail to this wrapper instead of the
+   viewport. Per-element travel lives in .reveal, where it is safe. */
+/* 220ms, not 380: the fade must be short enough that it reads as the page
+   arriving, not as time spent waiting for it. Anything over ~250ms on EVERY
+   navigation — including back — is latency wearing a costume. */
+.page {
+  animation: enter 220ms var(--ease) both;
+}
+
+@keyframes enter {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page { animation: none; }
+}

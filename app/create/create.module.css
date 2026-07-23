@@ -1,0 +1,292 @@
+.head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(10, 10, 15, 0.86);
+  backdrop-filter: blur(18px) saturate(1.3);
+}
+
+.wrap {
+  padding: 16px 16px calc(var(--nav-h) + 40px);
+}
+
+/* ---------- form ---------- */
+.field {
+  display: block;
+  margin-top: 14px;
+}
+
+.label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  margin-bottom: 7px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 46px;
+  padding: 0 13px;
+  border-radius: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  outline: 0;
+  font-family: var(--body);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--t-1);
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.field input::placeholder { color: var(--t-3); font-weight: 400; }
+.field input:focus,
+.field select:focus {
+  border-color: var(--accent);
+  background: var(--bg-2);
+}
+
+/* the native arrow is the one piece of chrome we cannot restyle, so we hide it */
+.field select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--t-3) 50%),
+    linear-gradient(135deg, var(--t-3) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 21px, calc(100% - 12px) 21px;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.hint {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--t-3);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ---------- trip type (the 6 verticals, moved off the header into the form) ---------- */
+.typeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.typeChip {
+  padding: 0 15px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--t-2);
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.typeChip:active { transform: scale(0.95); }
+.typeChip[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---------- difficulty ---------- */
+.chips {
+  display: flex;
+  gap: 8px;
+}
+.chip {
+  flex: 1;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--t-2);
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.chip:active { transform: scale(0.96); }
+.chip[aria-checked='true'] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- foot ---------- */
+.foot {
+  margin-top: 26px;
+}
+.foot .cta:disabled {
+  background: var(--bg-2);
+  color: var(--t-3);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+/* processing is not the same as disabled — the button is working, not off, so it
+   keeps the accent and shows a spinner rather than greying out */
+.foot .cta[data-busy='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: progress;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+.footNote {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t-3);
+}
+.footNote b { color: var(--t-1); font-weight: 700; }
+.verifiedInline { color: var(--safe); font-weight: 700; }
+.publishError {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--stop);
+}
+
+/* ---------- published ---------- */
+.done {
+  padding-top: 22px;
+}
+.tickBig {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  margin-bottom: 18px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: var(--safe);
+}
+
+.next {
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--t-2);
+}
+
+/* ---------- verification gate ---------- */
+.verifyHead {
+  padding-top: 20px;
+}
+.shield {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+}
+.verifyHead h1 {
+  margin: 0 0 10px;
+}
+.verifyHead p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--t-2);
+}
+
+.perks {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+}
+.perks li {
+  position: relative;
+  padding: 11px 0 11px 30px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--t-1);
+  border-bottom: 1px solid var(--line);
+}
+.perks li:last-child { border-bottom: 0; }
+/* a small escrow-green tick sets each promise apart from the reasons NOT to trust */
+.perks li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 15px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--safe)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M3 7.4 5.8 10 11 4' stroke='%2308120E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 11px no-repeat;
+}
+
+.feeCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: linear-gradient(165deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+}
+.feeCard strong {
+  display: block;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+}
+.feeCard em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--t-3);
+  margin-top: 2px;
+}
+.feeAmount {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--t-1);
+  flex: none;
+}
+
+/* the button spinner: accent-ink so it sits on the lit CTA */
+.spin {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent-ink) 30%, transparent);
+  border-top-color: var(--accent-ink);
+  animation: spin 640ms linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 1600ms; }
+}

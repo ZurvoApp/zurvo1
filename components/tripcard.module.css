@@ -1,0 +1,181 @@
+/* ---------- rail card ---------- */
+.card {
+  display: block;
+  flex: 0 0 232px;
+  scroll-snap-align: start;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-base) var(--ease);
+}
+.wide { flex-basis: 268px; }
+.card:active {
+  transform: scale(0.975);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.photo {
+  position: relative;
+  height: 132px;
+  overflow: hidden;
+}
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: var(--bg-2);
+  transition: transform 900ms var(--ease);
+}
+.card:active .photo img { transform: scale(1.04); }
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10, 10, 15, 0.72), transparent 58%);
+}
+
+/* one flag, and only when it is true */
+.flag {
+  position: absolute;
+  left: 9px;
+  bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px 4px 5px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(10, 10, 15, 0.55);
+  backdrop-filter: blur(10px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.flag :global(.face) {
+  width: 18px;
+  height: 18px;
+  font-size: 8px;
+  margin-right: -6px;
+  border-width: 1.5px;
+}
+.hot {
+  padding-left: 9px;
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+}
+
+.body {
+  padding: 11px 12px 12px;
+}
+.body h3 {
+  margin: 0 0 5px;
+  font-family: var(--display);
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  min-height: 2.5em;
+}
+.facts {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t-2);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+.foot b {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.held {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--safe);
+}
+
+/* ---------- list row ---------- */
+.row {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-base) var(--ease);
+}
+.row:active {
+  transform: scale(0.985);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+.row img {
+  width: 74px;
+  height: 74px;
+  flex: none;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--bg-2);
+}
+.row > div {
+  flex: 1;
+  min-width: 0;
+}
+.row h3 {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+.rowFoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.rowFoot b {
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex: none;
+}
+.knows {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bg-2);
+  overflow: hidden;
+  max-width: 90px;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+}

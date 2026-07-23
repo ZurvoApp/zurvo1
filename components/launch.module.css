@@ -1,0 +1,64 @@
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  opacity: 1;
+  background: var(--bg-0);
+  /* a barely-there warm bloom behind the mark, so the ground isn't flat black */
+  background-image: radial-gradient(
+    120% 60% at 50% 46%,
+    color-mix(in srgb, var(--accent) 9%, transparent) 0%,
+    transparent 62%
+  );
+  transition:
+    opacity 460ms var(--ease),
+    transform 460ms var(--ease);
+}
+
+/* the app rises THROUGH the veil — it scales up and dissolves, which reads as the
+   camera pushing past the logo rather than a curtain being yanked away */
+.out {
+  opacity: 0;
+  transform: scale(1.08);
+  pointer-events: none;
+}
+
+.mark {
+  animation: land 560ms var(--spring) both;
+}
+.mark img {
+  display: block;
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  box-shadow: 0 24px 60px -18px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+@keyframes land {
+  0% { opacity: 0; transform: scale(0.78); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.line {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+  color: var(--t-2);
+  animation: rise 460ms var(--ease) 180ms both;
+}
+
+@keyframes rise {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* motion off: no theatre, just get out of the way */
+@media (prefers-reduced-motion: reduce) {
+  .veil { display: none; }
+}

@@ -1,0 +1,493 @@
+/* ===========================================================
+   ZURVO — design tokens
+   One rule that governs this file: the layout never changes
+   between verticals. Only --accent does.
+   =========================================================== */
+
+:root {
+  /* ground */
+  --bg-0: #0A0A0F;   /* page */
+  --bg-1: #14141C;   /* raised surface */
+  --bg-2: #1D1D28;   /* chips, inputs */
+  --line: #22222E;   /* hairline rules */
+
+  /* ink */
+  --t-1: #F5F5F7;
+  --t-2: #9C9CAC;
+  --t-3: #5A5A6E;
+
+  /* semantic — never used as brand accent */
+  --safe: #34D399;   /* escrow, verified, refund */
+  --warn: #FBBF24;   /* real scarcity only */
+  --stop: #EF4444;
+
+  /* vertical accent — overridden per vertical below */
+  --accent: #FF6B35;
+  --accent-ink: #170B05;
+  --accent-dim: rgba(255, 107, 53, 0.12);
+
+  --display: 'Outfit', system-ui, sans-serif;
+  --body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --app-max: 430px;
+  --nav-h: 68px;
+
+  /* ---- motion ----
+     One easing does 90% of the work: a decelerating curve that starts fast and
+     settles without bouncing. Bounce reads as a toy; settle reads as a physical
+     object coming to rest. --spring is reserved for things that "arrive"
+     (the lock landing), never for things that merely move. */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+  --t-fast: 180ms;
+  --t-base: 340ms;
+  --t-slow: 520ms;
+}
+
+[data-vertical='rides'] {
+  --accent: #FF6B35;
+  --accent-ink: #170B05;
+  --accent-dim: rgba(255, 107, 53, 0.12);
+}
+[data-vertical='trails'] {
+  --accent: #34D399;
+  --accent-ink: #04170F;
+  --accent-dim: rgba(52, 211, 153, 0.12);
+}
+[data-vertical='offroad'] {
+  --accent: #FBBF24;
+  --accent-ink: #1A1204;
+  --accent-dim: rgba(251, 191, 36, 0.12);
+}
+[data-vertical='camps'] {
+  --accent: #A78BFA;
+  --accent-ink: #120A22;
+  --accent-dim: rgba(167, 139, 250, 0.12);
+}
+[data-vertical='paddle'] {
+  --accent: #38BDF8;
+  --accent-ink: #04151F;
+  --accent-dim: rgba(56, 189, 248, 0.12);
+}
+[data-vertical='cycles'] {
+  --accent: #F472B6;
+  --accent-ink: #1F0713;
+  --accent-dim: rgba(244, 114, 182, 0.12);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--t-1);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  max-width: var(--app-max);
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+  background: var(--bg-0);
+}
+
+/* touch-action: manipulation removes the browser's double-tap-to-zoom wait on
+   every tap target — the single cheapest "why does it feel laggy" fix on mobile */
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; touch-action: manipulation; }
+a { color: inherit; text-decoration: none; touch-action: manipulation; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.rule { height: 1px; background: var(--line); }
+
+/* full-screen auth loading (session check, oauth callback) */
+.auth-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+}
+.auth-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--bg-2);
+  border-top-color: var(--accent);
+  animation: authSpin 640ms linear infinite;
+}
+@keyframes authSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .auth-spinner { animation-duration: 1600ms; } }
+
+/* ---------- the one button ---------- */
+.cta {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
+  overflow: hidden;
+  /* the accent glow is what makes the button feel lit rather than painted */
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 10px 30px -10px color-mix(in srgb, var(--accent) 55%, transparent);
+  transition:
+    transform var(--t-fast) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    filter var(--t-fast) var(--ease);
+}
+.cta:active {
+  transform: scale(0.972);
+  filter: brightness(0.94);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+/* ---------- reveal: content arrives, it does not appear ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--t-slow) var(--ease),
+    transform var(--t-slow) var(--ease);
+  transition-delay: calc(var(--i, 0) * 45ms);
+  will-change: opacity, transform;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* every secondary action is a link, never a button */
+.link {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--t-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 10px 0;
+}
+.link:active { color: var(--t-1); }
+
+/* ===========================================================
+   SHARED TRUST COMPONENTS
+   These render identically on every screen. That repetition is
+   the point — it is what makes the promise feel like a rule
+   rather than a marketing line.
+   =========================================================== */
+
+/* --- face pile: riders you know wear the accent ring --- */
+.faces { display: flex; align-items: center; }
+.face {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-0);
+  margin-right: -8px;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 700;
+  color: #0A0A0F;
+  flex: none;
+}
+.face.known { border-color: var(--accent); }
+.face.more { background: var(--bg-2); color: var(--t-2); }
+
+.known-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
+.known-row p { margin: 0; font-size: 13.5px; line-height: 1.35; }
+.known-row b { color: var(--accent); font-weight: 700; }
+
+/* --- organiser: the answer to "who is taking my money" --- */
+.org { display: flex; align-items: center; gap: 11px; padding: 12px 0; }
+.org-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 62%, #000));
+  color: var(--accent-ink);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 13px;
+  flex: none;
+}
+.org-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+}
+.org-sub {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--t-2);
+  margin-top: 1px;
+}
+.tick {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--safe);
+  color: #08120E;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  font-weight: 900;
+  flex: none;
+}
+
+/* --- escrow: a price is never allowed on screen without it --- */
+.escrow-mini {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--safe);
+}
+.escrow-block {
+  display: flex;
+  gap: 10px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: rgba(52, 211, 153, 0.07);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+}
+.escrow-block p { margin: 0; font-size: 13px; line-height: 1.45; }
+.escrow-block b { color: var(--safe); font-weight: 700; }
+.escrow-block em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--t-2);
+  margin-top: 3px;
+}
+
+/* --- scarcity: only renders when it is true (see showScarcity) --- */
+.seats { padding: 12px 0 4px; }
+.seats-top {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--warn);
+  margin-bottom: 6px;
+}
+.seats-top span:last-child { color: var(--t-3); }
+.bar { height: 3px; background: var(--bg-2); border-radius: 2px; overflow: hidden; }
+.bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--warn);
+  border-radius: 2px;
+  box-shadow: 0 0 12px -2px var(--warn);
+  /* full width, scaled down from the left — the fill animates on the compositor */
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 900ms var(--ease) 260ms;
+}
+
+/* --- price --- */
+.price {
+  font-family: var(--display);
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.price small { font-size: 12px; font-weight: 500; color: var(--t-2); letter-spacing: 0; }
+
+/* --- shared type --- */
+.ride-title {
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.14;
+  margin: 0 0 9px;
+  text-wrap: balance;
+}
+.facts {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--t-2);
+  margin: 0 0 16px;
+}
+.facts b { color: var(--t-1); font-weight: 500; }
+.sec-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-3);
+  margin: 0 0 9px;
+}
+
+/* --- rider / organiser mode switch ---
+   A joined segmented control, deliberately NOT the same shape as the verticals
+   pills below it: a track with a sliding thumb reads as one binary choice, where
+   two loose pills would read as two more categories in the same family. */
+.mode {
+  position: relative;
+  display: flex;
+  margin: 6px 16px 2px;
+  padding: 4px;
+  background: var(--bg-2);
+  border-radius: 14px;
+}
+.mode-tab {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  text-align: center;
+  padding: 9px 0;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--t-2);
+  border-radius: 10px;
+  transition: color var(--t-base) var(--ease);
+}
+.mode-tab[aria-selected='true'] { color: var(--accent-ink); }
+/* thumb width == one tab (50% minus the 4px pad); translateX(100%) lands it
+   exactly over the second tab, since % translate is relative to its own width */
+.mode-thumb {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  right: 50%;
+  border-radius: 10px;
+  background: var(--accent);
+  transition: transform var(--t-base) var(--spring);
+}
+.mode-thumb[data-at='organiser'] { transform: translateX(100%); }
+
+/* --- vertical switcher: the only global control ---
+   A filled pill, not an underline. The selected vertical is the single most
+   consequential state in the app (it repaints every accent on screen), so it is
+   allowed to be the loudest control: solid accent, ink on top. */
+.verts {
+  display: flex;
+  gap: 10px;
+  padding: 8px 16px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.verts::-webkit-scrollbar { display: none; }
+
+.vert {
+  flex: none;
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--t-1);
+  background: var(--bg-2);
+  padding: 7px 15px;
+  border-radius: 999px;
+  transition:
+    background var(--t-base) var(--ease),
+    color var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.vert:active { transform: scale(0.94); }
+.vert[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+@media (hover: hover) {
+  .vert:not([aria-selected='true']):hover { background: var(--line); }
+}
+
+/* --- bottom nav: four tabs ---
+   The active tab is stated by a FILLED icon and white ink, not by colour alone.
+   Accent is reserved for the vertical you are browsing; if the nav wore it too,
+   the one thing that means "this is your world" would also mean "you are here". */
+.nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max);
+  display: flex;
+  padding: 30px 0 calc(12px + env(safe-area-inset-bottom));
+  /* no bar, no border, no glass box — the page simply darkens into the nav.
+     Content slides under the fade and dissolves; there is no edge to see. */
+  background: linear-gradient(
+    to top,
+    var(--bg-0) 42%,
+    color-mix(in srgb, var(--bg-0) 78%, transparent) 72%,
+    transparent 100%
+  );
+  z-index: 50;
+}
+.nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--t-3);
+  text-align: center;
+  padding: 4px 0;
+  transition: color var(--t-base) var(--ease);
+}
+.nav a[aria-current='page'] { color: var(--t-1); }
+.nav svg {
+  display: block;
+  transition: transform var(--t-base) var(--spring);
+}
+/* the active tab lifts a hair — enough to feel, not enough to notice */
+.nav a[aria-current='page'] svg { transform: translateY(-1px); }
+.nav a:active svg { transform: scale(0.88); }
+
+/* faces settle in rather than pop */
+.face { transition: transform var(--t-base) var(--spring); }
+.known-row:hover .face { transform: translateY(-1px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

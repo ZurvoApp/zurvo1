@@ -1,0 +1,203 @@
+.scroller {
+  height: 100dvh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.scroller::-webkit-scrollbar { display: none; }
+
+.photo {
+  position: relative;
+  height: 212px;
+  overflow: hidden;
+}
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  will-change: transform;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--bg-0) 3%, rgba(10, 10, 15, 0) 60%);
+}
+
+.back {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  left: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(10, 10, 15, 0.55);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  color: var(--t-1);
+}
+
+.sheet {
+  /* clears the sticky footer — nothing may hide behind the one button */
+  padding: 0 20px 120px;
+  margin-top: -34px;
+  position: relative;
+  z-index: 5;
+}
+
+.block { padding: 14px 0 4px; }
+
+/* riders, by name and bike — a face pile alone does not kill the fear */
+.riders {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.riders li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+.riders b { font-weight: 700; }
+.bike {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t-3);
+}
+.rodeWith {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 3px 7px;
+  border-radius: 4px;
+}
+
+.route {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.route li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 11px;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13.5px;
+  opacity: 0;
+}
+/* the stops trace out in order once the section arrives */
+:global(.reveal.in) .route li {
+  animation: trace 520ms var(--ease) both;
+}
+@keyframes trace {
+  0% { opacity: 0; transform: translateX(-7px); }
+  100% { opacity: 1; transform: none; }
+}
+.route i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--t-3);
+  margin: 0 auto;
+  position: relative;
+}
+.route li:not(:last-child) i::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: 3px;
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+}
+.route .start i,
+.route .end i { background: var(--accent); }
+.route time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t-3);
+}
+
+.covers {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 14px 0;
+  font-size: 13px;
+  color: var(--t-2);
+  text-align: left;
+}
+.covers b { color: var(--t-1); font-weight: 600; }
+
+/* height animates without a magic pixel number: 0fr → 1fr on a grid row */
+.coversWrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows var(--t-base) var(--ease),
+    opacity var(--t-base) var(--ease);
+}
+.coversWrap[data-open='true'] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.coversFull {
+  list-style: none;
+  overflow: hidden;
+  min-height: 0;
+  margin: 0 0 14px;
+  padding: 0 14px;
+  background: var(--bg-1);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--t-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: padding var(--t-base) var(--ease);
+}
+.coversWrap[data-open='true'] .coversFull { padding: 12px 14px; }
+
+.reassure {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--t-3);
+}
+
+/* sticky one-button footer */
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--app-max);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 20px calc(16px + env(safe-area-inset-bottom));
+  background: rgba(10, 10, 15, 0.82);
+  backdrop-filter: blur(20px) saturate(1.3);
+  border-top: 1px solid var(--line);
+  z-index: 50;
+  animation: dock 620ms var(--ease) 180ms both;
+}
+/* the price rail docks in from below once the page has settled */
+@keyframes dock {
+  0% { opacity: 0; transform: translate(-50%, 100%); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+.footer .price { font-size: 21px; line-height: 1.05; }
+.footer :global(.cta) { flex: 1; padding: 15px; }
