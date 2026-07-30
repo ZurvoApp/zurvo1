@@ -5,8 +5,8 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
-import { getLiveTrips, getTripPositions, sharePosition, stopSharing, subscribeToPositions, getMyId } from '@/lib/api'
-import { watchPosition } from '@/lib/geo'
+import { getLiveTrips, getTripPositions, sharePosition, stopSharing, subscribeToPositions, getMyId, appendTrackPoint } from '@/lib/api'
+import { watchPosition, haversineKm } from '@/lib/geo'
 import styles from './live.module.css'
 
 // The map engine is browser-only and heavy — never render or import it on the server.
@@ -116,6 +116,7 @@ function LiveRide({ trip, myId, onBack }) {
   const stopWatch = useRef(null)
   const sharingRef = useRef(false)
   const lastSent = useRef(0)
+  const lastTrack = useRef(null) // last breadcrumb saved to the recorded trail
 
   const refresh = useCallback(() => {
     getTripPositions(trip.id)
@@ -157,6 +158,16 @@ function LiveRide({ trip, myId, onBack }) {
           lastSent.current = t
           sharePosition(trip.id, p).catch(() => {})
         }
+        // Record the trail for the finished-ride share card. Drop a breadcrumb
+        // only once the rider has actually moved ~25 m (or after a long pause),
+        // so the saved route is a clean line, not a knot of standing-still jitter.
+        const last = lastTrack.current
+        const movedFar = !last || haversineKm(last, p) * 1000 > 25
+        const longGap = !last || t - last.t > 8000
+        if (sharingRef.current && (movedFar || longGap)) {
+          lastTrack.current = { lat: p.lat, lng: p.lng, t }
+          appendTrackPoint(trip.id, p).catch(() => {})
+        }
       },
       (e) => {
         setError(e?.code === 1 ? 'Location permission denied. Allow it to share your position.' : 'Couldn’t get a GPS fix.')
@@ -169,6 +180,7 @@ function LiveRide({ trip, myId, onBack }) {
     sharingRef.current = false
     setSharing(false)
     setMyPos(null)
+    lastTrack.current = null
     stopWatch.current?.()
     stopWatch.current = null
     stopSharing(trip.id).then(refresh)

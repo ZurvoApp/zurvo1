@@ -177,3 +177,24 @@
   font-size: 11.5px;
   color: var(--t-3);
 }
+
+/* Share a finished ride to an Instagram story. Sits at the right of the foot,
+   opposite the review nudge. Accent-tinted so it stays legible on the dimmed
+   ".done" card. */
+.share {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+  font-family: var(--display);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.share:active {
+  transform: scale(0.96);
+}

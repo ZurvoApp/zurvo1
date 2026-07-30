@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
 import Reveal from '@/components/Reveal'
 import { Faces, Lock } from '@/components/Trust'
+import ShareTrip from '@/components/ShareTrip'
 import { getMyRides } from '@/lib/api'
 import { rupees } from '@/lib/data'
 import styles from './rides.module.css'
@@ -14,6 +15,7 @@ import styles from './rides.module.css'
    Everything else about a booked ride can wait until he taps it. */
 export default function MyRides() {
   const [data, setData] = useState(null) // null = loading
+  const [sharing, setSharing] = useState(null) // the finished trip being shared
 
   useEffect(() => {
     let live = true
@@ -85,7 +87,7 @@ export default function MyRides() {
                 </Reveal>
                 {past.map((b, i) => (
                   <Reveal key={b.trip?.id ?? i}>
-                    <PastCard booking={b} />
+                    <PastCard booking={b} onShare={() => setSharing(b.trip)} />
                   </Reveal>
                 ))}
               </>
@@ -93,6 +95,8 @@ export default function MyRides() {
           </>
         )}
       </main>
+
+      {sharing && <ShareTrip trip={sharing} onClose={() => setSharing(null)} />}
 
       <BottomNav current="rides" />
     </>
@@ -136,8 +140,17 @@ function UpcomingCard({ booking }) {
   )
 }
 
-function PastCard({ booking }) {
+function PastCard({ booking, onShare }) {
   const { trip, finishedOn, reviewed } = booking
+
+  // The card is a link to the trip; the Share button lives inside it, so it must
+  // swallow the click rather than let it fall through to the navigation.
+  const share = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onShare?.()
+  }
+
   return (
     <Link href={`/trip/${trip.id}/`} className={`${styles.card} ${styles.done}`} data-vertical={trip.vertical}>
       <img className={styles.thumb} src={trip.photo} alt="" loading="lazy" decoding="async" />
@@ -154,8 +167,20 @@ function PastCard({ booking }) {
           <span className={reviewed ? styles.muted : styles.nudge}>
             {reviewed ? 'You reviewed this ride' : 'Rate your organiser →'}
           </span>
+          <button type="button" className={styles.share} onClick={share}>
+            <ShareIcon /> Share
+          </button>
         </div>
       </div>
     </Link>
+  )
+}
+
+function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M8 10V2m0 0L5 5m3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 9v3.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   )
 }
