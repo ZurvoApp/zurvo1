@@ -1,13 +1,132 @@
-.wrap {
-  min-height: 100dvh;
-  max-width: var(--app-max);
-  margin: 0 auto;
-  padding: 0 26px calc(40px + env(safe-area-inset-bottom));
+/* ============================================================
+   The door. Phone-first single column; on wide screens it splits
+   into a cinematic visual (left) + the sign-in panel (right),
+   X-style. The visual and the phone "Get the app" capsule are the
+   two faces of the same install offer.
+   ============================================================ */
+/* Fixed to the viewport so the login screen fills the whole window and escapes
+   the app's 430px phone-column cap (#app max-width) — otherwise the two-column
+   desktop split would be crushed into a narrow strip. */
+.page {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  background: var(--bg-0);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 30px;
 }
+@media (min-width: 880px) {
+  .page { flex-direction: row; }
+}
+
+/* ---- LEFT visual (desktop only) ---- */
+.visual { display: none; }
+@media (min-width: 880px) {
+  .visual {
+    display: block;
+    position: relative;
+    flex: 1 1 54%;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: #0b0a10;
+  }
+  .visualImg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 42%;
+  }
+  .visualScrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(6, 6, 10, 0.9), rgba(6, 6, 10, 0.2) 55%, rgba(6, 6, 10, 0.55));
+  }
+  .visualBody {
+    position: absolute;
+    inset: 0;
+    padding: 54px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .visualBrand { display: flex; align-items: center; gap: 15px; }
+  .visualBrand img { border-radius: 14px; }
+  .visualBrand h2 {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+  }
+  .visualBrand p {
+    margin: 2px 0 0;
+    font-family: var(--display);
+    font-weight: 600;
+    color: color-mix(in srgb, var(--accent) 82%, #fff);
+  }
+  .qrCard {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(10, 12, 16, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .qr { border-radius: 9px; background: #fff; display: block; }
+  .qrCard b {
+    display: block;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .qrCard span { font-size: 12px; color: rgba(255, 255, 255, 0.6); }
+}
+
+/* ---- RIGHT panel (the form) ---- */
+.panel {
+  flex: 1 1 46%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px calc(28px + env(safe-area-inset-bottom));
+}
+.panelInner {
+  margin: auto;
+  width: 100%;
+  max-width: 372px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 40px 0;
+}
+
+/* phone-only "Get the app" capsule, pinned to the top of the panel */
+.getApp {
+  align-self: center;
+  margin-top: calc(18px + env(safe-area-inset-top));
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t-1);
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.getApp:active { transform: scale(0.97); border-color: var(--accent); }
+@media (min-width: 880px) { .getApp { display: none; } }
 
 .brand {
   text-align: center;
@@ -21,7 +140,7 @@
 .brand h1 {
   margin: 0;
   font-family: var(--display);
-  font-size: 30px;
+  font-size: 27px;
   font-weight: 800;
   letter-spacing: -0.03em;
 }
@@ -30,6 +149,8 @@
   font-size: 14px;
   color: var(--t-2);
 }
+/* On desktop the visual half already carries the brand — keep the panel clean. */
+@media (min-width: 880px) { .brand img { display: none; } .brand { text-align: left; } }
 
 .methods,
 .form {
@@ -37,6 +158,37 @@
   flex-direction: column;
   gap: 12px;
 }
+
+/* "or" divider between the provider buttons and email */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--t-3);
+  font-size: 12px;
+  margin: 2px 0;
+}
+.divider::before,
+.divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
+
+/* secondary, outlined button (Continue with email) */
+.outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--t-1);
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.outline:active { transform: scale(0.98); border-color: var(--accent); }
 
 .google {
   display: flex;

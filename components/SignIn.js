@@ -1,8 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import styles from './signin.module.css'
+
+// A QR that encodes the /get install page, rendered on the desktop visual panel.
+const qrSrc = (url) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&bgcolor=255-255-255&color=11-10-16&data=${encodeURIComponent(url)}`
 
 /* The door. Phone OTP is the trusted default for Indian riders; Google is the
    one-tap option; email sends a real magic link for everyone else.
@@ -27,6 +31,15 @@ export default function SignIn() {
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [getUrl, setGetUrl] = useState('') // /get URL for the QR + capsule
+  const [installed, setInstalled] = useState(true) // assume installed until proven otherwise (hides the capsule)
+
+  useEffect(() => {
+    setGetUrl(window.location.origin + '/get/')
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+    setInstalled(standalone)
+  }, [])
 
   const fail = (e) => setMsg({ tone: 'bad', text: e?.message || 'Something went wrong. Try again.' })
 
@@ -124,27 +137,70 @@ export default function SignIn() {
   }
 
   return (
-    <div className={styles.wrap}>
-      <div className={styles.brand}>
-        <img src="/icon.png" alt="" width={64} height={64} />
-        <h1>Zurvo</h1>
-        <p>Ride with people. Not with strangers.</p>
-      </div>
-
-      {mode === 'choose' && (
-        <div className={styles.methods}>
-          <button className={styles.google} onClick={google} disabled={busy}>
-            <GoogleMark />
-            Continue with Google
-          </button>
-          <button className="cta" onClick={() => go('phone')}>
-            Continue with phone
-          </button>
-          <button className={styles.text} onClick={() => go('email')}>
-            Use email instead
-          </button>
+    <div className={styles.page}>
+      {/* LEFT — the cinematic half, desktop only. Carries the brand and a QR so a
+          laptop visitor can jump the app straight onto their phone (X-style). */}
+      <aside className={styles.visual}>
+        <picture>
+          <source srcSet="/hero-ride.webp" type="image/webp" />
+          <img className={styles.visualImg} src="/hero-ride.jpg" alt="" />
+        </picture>
+        <div className={styles.visualScrim} />
+        <div className={styles.visualBody}>
+          <div className={styles.visualBrand}>
+            <img src="/icon.png" alt="" width={52} height={52} />
+            <div>
+              <h2>Zurvo</h2>
+              <p>Ride with people. Not with strangers.</p>
+            </div>
+          </div>
+          {getUrl && (
+            <div className={styles.qrCard}>
+              <img className={styles.qr} src={qrSrc(getUrl)} alt="Scan to install Zurvo" width={84} height={84} />
+              <div>
+                <b>Get the app</b>
+                <span>Scan to install Zurvo on your phone</span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </aside>
+
+      {/* RIGHT — the sign-in panel. On phone this is the whole screen. */}
+      <div className={styles.panel}>
+        {/* Phone-only capsule at the very top, mirroring the desktop QR. */}
+        {!installed && (
+          <a className={styles.getApp} href="/get/">
+            <Down />
+            Get the app
+          </a>
+        )}
+
+        <div className={styles.panelInner}>
+          <div className={styles.brand}>
+            <img src="/icon.png" alt="" width={60} height={60} />
+            <h1>Sign in to Zurvo</h1>
+            <p>Ride with people. Not with strangers.</p>
+          </div>
+
+          {mode === 'choose' && (
+            <div className={styles.methods}>
+              {/* Phone first — the trusted default for Indian riders. */}
+              <button className="cta" onClick={() => go('phone')}>
+                Continue with phone
+              </button>
+              <button className={styles.google} onClick={google} disabled={busy}>
+                <GoogleMark />
+                Continue with Google
+              </button>
+              <div className={styles.divider}>
+                <span>or</span>
+              </div>
+              <button className={styles.outline} onClick={() => go('email')}>
+                Continue with email
+              </button>
+            </div>
+          )}
 
       {mode === 'phone' && (
         <div className={styles.form}>
@@ -257,10 +313,20 @@ export default function SignIn() {
         </div>
       )}
 
-      {msg && <p className={`${styles.msg} ${msg.tone === 'bad' ? styles.bad : styles.ok}`}>{msg.text}</p>}
+          {msg && <p className={`${styles.msg} ${msg.tone === 'bad' ? styles.bad : styles.ok}`}>{msg.text}</p>}
 
-      <p className={styles.legal}>Your money is held in escrow. We never ride with people we haven’t verified.</p>
+          <p className={styles.legal}>Your money is held in escrow. We never ride with people we haven’t verified.</p>
+        </div>
+      </div>
     </div>
+  )
+}
+
+function Down() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

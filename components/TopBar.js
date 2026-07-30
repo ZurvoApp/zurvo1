@@ -20,6 +20,16 @@ export default function TopBar({ city, onCity, vertical = 'rides', title, hasHer
 
   const anyHere = hasHere
 
+  // "Get the app" belongs to browser users on a phone who haven't installed yet.
+  // Hidden once running as the installed PWA, and on desktop (CSS) where the
+  // sign-in page's QR covers it instead.
+  const [showGetApp, setShowGetApp] = useState(false)
+  useEffect(() => {
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+    setShowGetApp(!standalone)
+  }, [])
+
   const open = () => {
     setAnchor(cityBtn.current.getBoundingClientRect())
     setPicking(true)
@@ -48,18 +58,27 @@ export default function TopBar({ city, onCity, vertical = 'rides', title, hasHer
           </button>
         )}
 
-        {/* Profile now lives in the bottom nav ("Me"), so the bar carries only the
-            one shortcut worth a thumb up here: the rides he has already paid for. */}
-        {!title && (
-          <div className={styles.right}>
+        <div className={styles.right}>
+          {/* Phone-only install shortcut; hidden in the installed app and on desktop. */}
+          {showGetApp && (
+            <Link href="/get/" className={styles.getApp}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 20h16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Get the app
+            </Link>
+          )}
+          {/* Profile lives in the bottom nav ("Me"); the bar keeps the one shortcut
+              worth a thumb up here: the rides he has already paid for. */}
+          {!title && (
             <Link href="/rides/" className={styles.icon} aria-label="My rides">
               <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
                 <rect x="2.5" y="3.5" width="13" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M2.5 7h13M6 2.2v2.6M12 2.2v2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {picking && anchor && (
