@@ -480,6 +480,91 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
 .nav a[aria-current='page'] svg { transform: translateY(-1px); }
 .nav a:active svg { transform: scale(0.88); }
 
+/* The brand belongs to the desktop sidebar only; on the phone bar it would steal
+   a whole tab slot, so it is removed from flow entirely there. Needs .nav .navBrand
+   (two classes) to outrank the `.nav a` display rule above. */
+.nav .navBrand { display: none; }
+
+/* ============================================================
+   RESPONSIVE — tablet & desktop
+   The app is phone-first. On wider screens the fixed bottom tab
+   bar becomes a fixed LEFT SIDEBAR, and each tab page's content
+   settles into a centred, readable column beside it — the same
+   code, now a real desktop website. Pages that carry no tab bar
+   (auth, /get, trip detail) keep their own full-bleed designs.
+   Gated behind :has(.nav) so only tab pages get the sidebar frame.
+   ============================================================ */
+@media (min-width: 880px) {
+  :root { --side-w: 248px; --content-max: 660px; --frame-w: 1020px; }
+
+  /* Cap the whole sidebar+content unit and centre it, so margins are balanced on
+     wide screens instead of the content drifting to one side. */
+  #app:has(.nav) {
+    max-width: var(--frame-w);
+    margin-inline: auto;
+    padding-left: var(--side-w);
+  }
+  /* Centre the page's own content + header into a comfortable column.
+     Descendant (not direct-child) selectors because app/template.js wraps each
+     page in a transition div, so main/header are grandchildren of #app. */
+  #app:has(.nav) main,
+  #app:has(.nav) header {
+    max-width: var(--content-max);
+    margin-inline: auto;
+  }
+
+  /* Bottom bar -> left sidebar, pinned to the centred frame's left edge. */
+  .nav {
+    top: 0;
+    bottom: 0;
+    left: max(0px, calc((100vw - var(--frame-w)) / 2));
+    right: auto;
+    transform: none;
+    width: var(--side-w);
+    max-width: none;
+    height: 100dvh;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 4px;
+    padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+    background: var(--bg-1);
+    border-right: 1px solid var(--line);
+  }
+  .nav .navBrand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 6px 12px 18px;
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--t-1);
+  }
+  .navBrand img { border-radius: 9px; }
+  .nav a {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    font-size: 14.5px;
+    color: var(--t-2);
+    transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+  .nav a[aria-current='page'] {
+    background: var(--bg-2);
+    color: var(--t-1);
+  }
+  .nav svg { width: 22px; height: 22px; }
+  .nav a[aria-current='page'] svg { transform: none; }
+}
+@media (min-width: 880px) and (hover: hover) {
+  .nav a:hover { background: color-mix(in srgb, var(--bg-2) 60%, transparent); color: var(--t-1); }
+}
+
 /* faces settle in rather than pop */
 .face { transition: transform var(--t-base) var(--spring); }
 .known-row:hover .face { transform: translateY(-1px); }

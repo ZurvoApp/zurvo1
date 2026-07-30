@@ -22,6 +22,12 @@ const TABS = [
 export default function BottomNav({ current }) {
   return (
     <nav className="nav">
+      {/* Brand only shows when the nav becomes a left sidebar on wide screens —
+          hidden on the phone bottom bar (see globals.css .navBrand). */}
+      <Link href="/" className="navBrand" aria-hidden="true" tabIndex={-1}>
+        <img src="/icon.png" alt="" width={30} height={30} />
+        <span>Zurvo</span>
+      </Link>
       {TABS.map(({ id, href, label, Icon }) => {
         const on = current === id
         return (
