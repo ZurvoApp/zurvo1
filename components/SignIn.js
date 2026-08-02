@@ -33,12 +33,29 @@ export default function SignIn() {
   const [msg, setMsg] = useState(null)
   const [getUrl, setGetUrl] = useState('') // /get URL for the QR + capsule
   const [installed, setInstalled] = useState(true) // assume installed until proven otherwise (hides the capsule)
+  // Which sign-in methods the Supabase project actually has configured. We only
+  // show a button once its provider is live, so a production visitor never taps a
+  // method that would just error. Email is the always-on default.
+  const [providers, setProviders] = useState(null) // null = still detecting
 
   useEffect(() => {
     setGetUrl(window.location.origin + '/get/')
     const standalone =
       window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
     setInstalled(standalone)
+
+    const u = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const k = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    fetch(`${u}/auth/v1/settings`, { headers: { apikey: k } })
+      .then((r) => r.json())
+      .then((s) =>
+        setProviders({
+          phone: !!s?.external?.phone,
+          google: !!s?.external?.google,
+          email: s?.external?.email !== false,
+        }),
+      )
+      .catch(() => setProviders({ phone: false, google: false, email: true }))
   }, [])
 
   const fail = (e) => setMsg({ tone: 'bad', text: e?.message || 'Something went wrong. Try again.' })
@@ -183,24 +200,42 @@ export default function SignIn() {
             <p>Ride with people. Not with strangers.</p>
           </div>
 
-          {mode === 'choose' && (
-            <div className={styles.methods}>
-              {/* Phone first — the trusted default for Indian riders. */}
-              <button className="cta" onClick={() => go('phone')}>
-                Continue with phone
-              </button>
-              <button className={styles.google} onClick={google} disabled={busy}>
-                <GoogleMark />
-                Continue with Google
-              </button>
-              <div className={styles.divider}>
-                <span>or</span>
+          {mode === 'choose' &&
+            (providers === null ? (
+              <div className={styles.methods} aria-busy="true" style={{ alignItems: 'center', padding: '12px 0' }}>
+                <span className="auth-spinner" />
               </div>
-              <button className={styles.outline} onClick={() => go('email')}>
-                Continue with email
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className={styles.methods}>
+                {/* Phone first — the trusted default for Indian riders. */}
+                {providers.phone && (
+                  <button className="cta" onClick={() => go('phone')}>
+                    Continue with phone
+                  </button>
+                )}
+                {providers.google && (
+                  <button className={styles.google} onClick={google} disabled={busy}>
+                    <GoogleMark />
+                    Continue with Google
+                  </button>
+                )}
+                {/* Email is the always-on fallback. It's the primary button when it's
+                    the only method live, and the "or … email" option otherwise. */}
+                {providers.email && (providers.phone || providers.google) && (
+                  <div className={styles.divider}>
+                    <span>or</span>
+                  </div>
+                )}
+                {providers.email && (
+                  <button
+                    className={providers.phone || providers.google ? styles.outline : 'cta'}
+                    onClick={() => go('email')}
+                  >
+                    Continue with email
+                  </button>
+                )}
+              </div>
+            ))}
 
       {mode === 'phone' && (
         <div className={styles.form}>
