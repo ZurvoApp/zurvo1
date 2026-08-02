@@ -3,14 +3,21 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CITIES } from '@/lib/data'
+import RiderAvatar from './RiderAvatar'
 import { useAuth } from './AuthProvider'
 import styles from './onboarding.module.css'
+
+const GENDERS = [
+  { id: 'male', label: 'Male' },
+  { id: 'female', label: 'Female' },
+  { id: 'other', label: 'Prefer not to say' },
+]
 
 /* Runs once, right after a rider's first sign-in, before they see the app. It asks
    only for what a profile and a trip page actually show — a name, a home city, a
    bike — and writes them to the profile. Completing it (setting a city) is what
    flips the rider from "new" to "in". */
-const STEPS = ['name', 'city', 'bike']
+const STEPS = ['name', 'gender', 'city', 'bike']
 
 export default function Onboarding() {
   const { user, refreshProfile } = useAuth()
@@ -18,6 +25,7 @@ export default function Onboarding() {
   // Pre-fill only from a real provider name (Google). Test/email accounts have an
   // auto-generated name, so those start blank rather than showing junk.
   const [name, setName] = useState(user?.user_metadata?.full_name || user?.user_metadata?.name || '')
+  const [gender, setGender] = useState('')
   const [city, setCity] = useState('')
   const [bike, setBike] = useState('')
   const [saving, setSaving] = useState(false)
@@ -32,7 +40,7 @@ export default function Onboarding() {
     const initials = (name.trim()[0] || 'R').toUpperCase()
     const { error } = await supabase
       .from('profiles')
-      .update({ name: name.trim() || 'Rider', initials, city, bike: bike.trim() || null })
+      .update({ name: name.trim() || 'Rider', initials, gender: gender || null, city, bike: bike.trim() || null })
       .eq('user_id', user.id)
     if (error) {
       setError(error.message)
@@ -43,7 +51,8 @@ export default function Onboarding() {
   }
 
   const key = STEPS[step]
-  const canAdvance = key === 'name' ? name.trim().length > 0 : key === 'city' ? !!city : true
+  const canAdvance =
+    key === 'name' ? name.trim().length > 0 : key === 'gender' ? !!gender : key === 'city' ? !!city : true
 
   return (
     <div className={styles.wrap}>
@@ -73,6 +82,28 @@ export default function Onboarding() {
               autoFocus
               maxLength={40}
             />
+          </>
+        )}
+
+        {key === 'gender' && (
+          <>
+            <h1>Pick your rider.</h1>
+            <p>This sets the helmet on your rider card. You can change it later.</p>
+            <div className={styles.genders}>
+              {GENDERS.map((opt) => (
+                <button
+                  key={opt.id}
+                  className={styles.genderCard}
+                  data-on={gender === opt.id}
+                  onClick={() => setGender(opt.id)}
+                >
+                  <span className={styles.genderIcon}>
+                    <RiderAvatar gender={opt.id === 'other' ? null : opt.id} />
+                  </span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </>
         )}
 

@@ -72,7 +72,7 @@ block — never a new screen.
 | Payments | Razorpay — bookings and a one-time ₹99 organiser verification, signatures verified server-side |
 | Styling | Pure CSS Modules over design tokens; no CSS framework |
 | Maps | Leaflet, loaded from CDN only when the Live tab is opened |
-| Media | Trip photos from Unsplash, avatars from DiceBear |
+| Media | Trip photos from Unsplash; rider avatars are inline SVG helmets (male/female/neutral) |
 | Type | Outfit (display), Plus Jakarta Sans (body), JetBrains Mono (numbers) |
 
 Pages render on demand rather than being statically exported, because organisers

@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { supabase } from '@/lib/supabase'
+import RiderAvatar from './RiderAvatar'
 import { useAuth } from './AuthProvider'
 import styles from './settings.module.css'
+
+const GENDERS = [
+  { id: 'male', label: 'Male' },
+  { id: 'female', label: 'Female' },
+  { id: 'other', label: 'Neutral' },
+]
 
 /* Settings is where the app stops performing and starts obeying. Every control
    here does the thing it says: the toggles persist, sign-out actually forgets
@@ -28,8 +36,9 @@ const TOGGLES = [
 const DEFAULTS = Object.fromEntries(TOGGLES.flatMap((g) => g.items.map((i) => [i.id, i.on])))
 
 export default function Settings({ onClose }) {
-  const { profile, signOut: authSignOut } = useAuth()
+  const { profile, signOut: authSignOut, refreshProfile } = useAuth()
   const [shown, setShown] = useState(false)
+  const [savingGender, setSavingGender] = useState(false)
   const [prefs, setPrefs] = useState(DEFAULTS)
   const [verified, setVerified] = useState(false)
   const [signedOut, setSignedOut] = useState(false)
@@ -81,6 +90,14 @@ export default function Settings({ onClose }) {
       } catch {}
       return next
     })
+  }
+
+  const setGender = async (g) => {
+    if (savingGender || g === (profile?.gender || 'other')) return
+    setSavingGender(true)
+    await supabase.from('profiles').update({ gender: g }).eq('user_id', profile.user_id)
+    await refreshProfile() // rider card + this picker both read the fresh value
+    setSavingGender(false)
   }
 
   const signOut = () => {
@@ -140,6 +157,28 @@ export default function Settings({ onClose }) {
                 value={verified ? 'Verified ✓' : 'Not verified'}
                 valueTone={verified ? 'safe' : 'muted'}
               />
+            </div>
+
+            {/* rider look — the helmet on the profile card, changeable any time */}
+            <p className={`sec-label ${styles.groupLabel}`}>Your rider</p>
+            <div className={styles.genders} data-busy={savingGender}>
+              {GENDERS.map((opt) => {
+                const on = (profile?.gender || 'other') === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    className={styles.genderCard}
+                    data-on={on}
+                    onClick={() => setGender(opt.id)}
+                    aria-pressed={on}
+                  >
+                    <span className={styles.genderIcon}>
+                      <RiderAvatar gender={opt.id === 'other' ? null : opt.id} />
+                    </span>
+                    {opt.label}
+                  </button>
+                )
+              })}
             </div>
 
             {/* the working part: toggles that persist */}

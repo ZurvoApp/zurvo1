@@ -36,10 +36,9 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* every photo on every screen comes from these two hosts — warming the
-            connections here saves the TLS handshake off the first hero image */}
+        {/* trip photos all come from Unsplash — warming the connection here saves
+            the TLS handshake off the first hero image (avatars are now inline SVG) */}
         <link rel="preconnect" href="https://images.unsplash.com" />
-        <link rel="preconnect" href="https://api.dicebear.com" />
         <link
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
           rel="stylesheet"

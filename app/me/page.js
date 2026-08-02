@@ -5,6 +5,7 @@ import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
 import Reveal from '@/components/Reveal'
 import Settings from '@/components/Settings'
+import RiderAvatar from '@/components/RiderAvatar'
 import { useAuth } from '@/components/AuthProvider'
 import styles from './me.module.css'
 
@@ -12,7 +13,7 @@ import styles from './me.module.css'
    A profile that only lists settings is an admin page. This is an identity card —
    the numbers he earned, ranked against his own city, with his face on it. */
 export default function Me() {
-  const { profile, user } = useAuth()
+  const { profile } = useAuth()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Gated by AuthGate, so a session exists; the profile row may lag a new sign-up
@@ -34,7 +35,6 @@ export default function Me() {
   }
 
   const name = profile.name || 'Rider'
-  const seed = profile.avatar_seed || user?.id || name
   const km = profile.km ?? 0
   const rides = profile.rides ?? 0
   const states = profile.states ?? 0
@@ -56,10 +56,7 @@ export default function Me() {
 
           <div className={styles.identity}>
             <div className={styles.avatar}>
-              <img
-                src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(seed)}&backgroundColor=b6e3f4`}
-                alt=""
-              />
+              <RiderAvatar gender={profile.gender} />
             </div>
             <div>
               <h1>

@@ -109,6 +109,52 @@
 .rowValue[data-tone='safe'] { color: var(--safe); }
 .rowValue[data-tone='muted'] { color: var(--t-3); }
 
+/* ---------- rider look picker ---------- */
+.genders {
+  display: flex;
+  gap: 10px;
+}
+.genders[data-busy='true'] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.genderCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 6px 11px;
+  border-radius: 15px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t-2);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.genderCard:active { transform: scale(0.97); }
+.genderCard[data-on='true'] {
+  border-color: var(--accent);
+  background: var(--bg-2);
+  color: var(--t-1);
+}
+.genderIcon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  overflow: hidden;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.genderCard[data-on='true'] .genderIcon {
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 22px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
 /* ---------- toggles: the working part ---------- */
 .toggleRow {
   display: flex;

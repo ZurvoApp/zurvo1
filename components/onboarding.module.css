@@ -110,6 +110,49 @@
   color: var(--accent-ink);
 }
 
+.genders {
+  display: flex;
+  gap: 10px;
+}
+.genderCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 8px 13px;
+  border-radius: 16px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t-2);
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.genderCard:active {
+  transform: scale(0.97);
+}
+.genderCard[data-on='true'] {
+  border-color: var(--accent);
+  background: var(--bg-2);
+  color: var(--t-1);
+}
+.genderIcon {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  overflow: hidden;
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+.genderCard[data-on='true'] .genderIcon {
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 22px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
 .foot {
   display: flex;
   flex-direction: column;
