@@ -16,6 +16,10 @@ const AuthContext = createContext({
 
 export const useAuth = () => useContext(AuthContext)
 
+// Guards against exchanging the same OAuth code twice (React's dev double-invoke,
+// or a stray re-render) — a code is single-use and the second attempt errors.
+let oauthCodeHandled = false
+
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -49,7 +53,33 @@ export default function AuthProvider({ children }) {
       if (active) setLoading(false)
     }
 
-    supabase.auth.getSession().then(({ data }) => apply(data.session))
+    /* Complete an OAuth sign-in no matter where the code lands. Google returns
+       the ?code to the URL Supabase decides on — and when the exact callback URL
+       isn't allow-listed, Supabase falls back to the Site URL (the bare "/"),
+       where the dedicated /auth/callback handler never runs. So exchange it here,
+       on whatever page it arrives, then scrub the spent code from the address bar.
+       The /auth/* callback runs its own exchange, so skip it there. */
+    const init = async () => {
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
+        const params = new URLSearchParams(window.location.search)
+        const code = params.get('code')
+        if (code && !oauthCodeHandled) {
+          oauthCodeHandled = true
+          try {
+            await supabase.auth.exchangeCodeForSession(code)
+          } catch {
+            // fall through to getSession — a stale/spent code just means "no session"
+          }
+          params.delete('code')
+          const qs = params.toString()
+          window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
+        }
+      }
+      const { data } = await supabase.auth.getSession()
+      apply(data.session)
+    }
+
+    init()
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session))
 
     return () => {
