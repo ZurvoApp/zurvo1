@@ -66,9 +66,15 @@ export default function AuthProvider({ children }) {
         if (code && !oauthCodeHandled) {
           oauthCodeHandled = true
           try {
-            await supabase.auth.exchangeCodeForSession(code)
-          } catch {
-            // fall through to getSession — a stale/spent code just means "no session"
+            const { error } = await supabase.auth.exchangeCodeForSession(code)
+            if (error) throw error
+          } catch (e) {
+            // Surface WHY sign-in didn't complete instead of silently bouncing to
+            // the login screen — SignIn reads this and shows it.
+            console.error('[Zurvo] OAuth code exchange failed:', e?.message || e)
+            try {
+              sessionStorage.setItem('zurvo:oauth-error', e?.message || 'Sign-in could not be completed.')
+            } catch {}
           }
           params.delete('code')
           const qs = params.toString()

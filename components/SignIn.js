@@ -44,6 +44,16 @@ export default function SignIn() {
       window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
     setInstalled(standalone)
 
+    // If an OAuth round-trip just failed, AuthProvider stashed the reason — show it
+    // here rather than leaving the rider staring at the login screen wondering why.
+    try {
+      const oauthErr = sessionStorage.getItem('zurvo:oauth-error')
+      if (oauthErr) {
+        setMsg({ tone: 'bad', text: oauthErr })
+        sessionStorage.removeItem('zurvo:oauth-error')
+      }
+    } catch {}
+
     const u = process.env.NEXT_PUBLIC_SUPABASE_URL
     const k = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     fetch(`${u}/auth/v1/settings`, { headers: { apikey: k } })
