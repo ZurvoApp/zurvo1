@@ -35,6 +35,16 @@ export default function AuthCallback() {
         const hash = new URLSearchParams(url.hash.replace(/^#/, ''))
         const accessToken = hash.get('access_token')
 
+        /* A recovery link belongs to /auth/reset, which spends the token and then
+           asks for the new password. If one lands here — Supabase falls back to the
+           Site URL when the reset URL isn't allow-listed — hand it over UNSPENT
+           rather than verifying it, which would sign the person straight in with
+           the password they've just told us they can't remember. */
+        if (type === 'recovery' || hash.get('type') === 'recovery') {
+          window.location.replace(`/auth/reset/${url.search}${url.hash}`)
+          return
+        }
+
         if (tokenHash && type) {
           const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
           if (error) throw error
