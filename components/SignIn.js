@@ -225,14 +225,16 @@ export default function SignIn() {
 
   const isSignup = authMode === 'signup'
   const emailOk = email.trim().length > 3 && email.includes('@')
-  // Creating an account has to clear the length bar before the button lights up;
-  // signing in must not, because an old account may predate that rule.
-  const canSubmitEmail = busy
-    ? false
-    : isSignup
-      ? emailOk && password.length >= MIN_PW && password2.length >= MIN_PW
-      : emailOk && password.length > 0
+  /* The button is live as soon as the fields are filled — the password RULES are
+     checked on click, not by greying it out. A disabled button can only say "no";
+     it can't say why, and a rider who types a six-character password and gets no
+     response at all has no way to learn that eight was the number. */
+  const canSubmitEmail = !busy && emailOk && password.length > 0 && (!isSignup || password2.length > 0)
   const submitEmail = () => (isSignup ? signUp() : signIn())
+  // Shown live under the field while creating an account, so the bar is visible
+  // before it's hit rather than only after it's missed.
+  const pwShort = isSignup && password.length > 0 && password.length < MIN_PW
+  const pwMismatch = isSignup && password2.length > 0 && password !== password2
 
   return (
     <div className={styles.page}>
@@ -443,6 +445,11 @@ export default function SignIn() {
                     {showPw ? 'Hide' : 'Show'}
                   </button>
                 </div>
+                {pwShort && (
+                  <span className={styles.rule}>
+                    {MIN_PW - password.length} more character{MIN_PW - password.length === 1 ? '' : 's'} to go
+                  </span>
+                )}
               </label>
 
               {isSignup && (
@@ -456,6 +463,7 @@ export default function SignIn() {
                     autoComplete="new-password"
                     placeholder="Type it once more"
                   />
+                  {pwMismatch && <span className={styles.rule}>These don’t match yet</span>}
                 </label>
               )}
 

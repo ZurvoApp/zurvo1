@@ -166,6 +166,21 @@ a { color: inherit; text-decoration: none; touch-action: manipulation; }
     0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+/* A button that cannot be pressed has to LOOK like one. Without this a disabled
+   .cta is pixel-identical to a live one, so the only feedback a person gets from
+   tapping it is nothing at all — which reads as a broken app, not a blocked form. */
+.cta:disabled {
+  opacity: 0.45;
+  filter: saturate(0.55);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+.cta:disabled:active {
+  transform: none;
+  filter: saturate(0.55);
+  box-shadow: none;
+}
+
 /* ---------- reveal: content arrives, it does not appear ---------- */
 .reveal {
   opacity: 0;
