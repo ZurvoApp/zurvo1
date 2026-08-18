@@ -68,7 +68,7 @@ block — never a new screen.
 | Layer | Choice |
 | --- | --- |
 | Framework | Next.js 14 (App Router) + React 18, server-rendered, installable as a PWA |
-| Backend | Supabase — Postgres, Auth (phone OTP, Google, email magic link), Storage, Realtime, row-level security |
+| Backend | Supabase — Postgres, Auth (email + password, phone OTP, Google), Storage, Realtime, row-level security |
 | Payments | Razorpay — bookings and a one-time ₹99 organiser verification, signatures verified server-side |
 | Styling | Pure CSS Modules over design tokens; no CSS framework |
 | Maps | Leaflet, loaded from CDN only when the Live tab is opened |

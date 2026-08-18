@@ -9,26 +9,38 @@ const qrSrc = (url) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&bgcolor=255-255-255&color=11-10-16&data=${encodeURIComponent(url)}`
 
 /* The door. Phone OTP is the trusted default for Indian riders; Google is the
-   one-tap option; email sends a real magic link for everyone else.
+   one-tap option; email is a real account — an address and a password the rider
+   chooses, held by Supabase Auth.
 
-   Google and the email link route back through /auth/callback, which turns
-   whatever Supabase hands back into a session. Phone OTP resolves in place — it
-   never leaves the app. AuthProvider notices the new session either way.
+   Email is deliberately a TWO-state door, not one: signing in and creating an
+   account ask for different things (a returning rider types one password, a new
+   one confirms it), and blurring the two is how a person ends up with a second
+   account for an address they already own. So the panel names which one it is,
+   and the swap is one tap away.
 
-   The dev-only shortcut at the bottom of the email screen mints a throwaway
-   account instantly. It exists because email is rate-limited and Google needs a
-   provider set up; without it a misconfigured inbox locks you out of your own
-   app. It renders only in development AND is refused by the server in
-   production, so it can never become a real door. */
+   Google routes back through /auth/callback, which turns whatever Supabase hands
+   back into a session. Phone OTP and email+password resolve in place — they never
+   leave the app. AuthProvider notices the new session either way, and the
+   on_auth_user_created trigger gives every new account its profile row.
+
+   There is no shortcut in here and no build in which one appears. Every way
+   through this screen is a way a member of the public can also come through. */
 const redirectTo = () => (typeof window !== 'undefined' ? `${window.location.origin}/auth/callback/` : undefined)
-const IS_DEV = process.env.NODE_ENV === 'development'
+const resetRedirectTo = () => (typeof window !== 'undefined' ? `${window.location.origin}/auth/reset/` : undefined)
+const MIN_PW = 8
 
 export default function SignIn() {
   const [mode, setMode] = useState('choose') // choose | phone | email
+  const [authMode, setAuthMode] = useState('signin') // signin | signup — the email door only
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
+  const [confirmSent, setConfirmSent] = useState(false) // signed up; the inbox has to confirm first
+  const [resetSent, setResetSent] = useState(false) // password-recovery mail is on its way
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
   const [getUrl, setGetUrl] = useState('') // /get URL for the QR + capsule
@@ -68,7 +80,23 @@ export default function SignIn() {
       .catch(() => setProviders({ phone: false, google: false, email: true }))
   }, [])
 
-  const fail = (e) => setMsg({ tone: 'bad', text: e?.message || 'Something went wrong. Try again.' })
+  /* Supabase answers in API strings. A rider shouldn't have to read them. Every
+     one of these is a dead end the person can actually act on, so each says what
+     the next move is rather than what the server called the problem. */
+  const humanise = (raw) => {
+    const t = (raw || '').toLowerCase()
+    if (t.includes('invalid login credentials'))
+      return 'That email and password don’t match an account. Check the password, or create an account below.'
+    if (t.includes('email not confirmed'))
+      return 'Confirm your email first — open the link we sent when you signed up.'
+    if (t.includes('already registered') || t.includes('already been registered'))
+      return 'That email already has an account. Sign in instead.'
+    if (t.includes('password should be')) return `Password is too short — use at least ${MIN_PW} characters.`
+    if (t.includes('rate limit') || t.includes('too many')) return 'Too many attempts. Wait a minute and try again.'
+    return raw || 'Something went wrong. Try again.'
+  }
+
+  const fail = (e) => setMsg({ tone: 'bad', text: humanise(e?.message) })
 
   const google = async () => {
     setBusy(true)
@@ -102,66 +130,109 @@ export default function SignIn() {
     // success → AuthProvider swaps to the app
   }
 
-  /* The emailed code. This is the reliable half of email sign-in.
+  /* ---------------------------- email + password ---------------------------- */
 
-     A magic LINK can fail through no fault of the rider: PKCE ties the link to
-     the browser that asked for it (open it from the Gmail app and the verifier
-     isn't there), and mail providers pre-fetch URLs to scan them, which spends
-     the single-use token before a human ever clicks. A typed code has neither
-     problem — it carries no browser secret and there is no URL to pre-fetch, so
-     it also works when the mail is read on a different device. */
-  const verifyEmailCode = async () => {
+  // A returning rider. The session lands immediately — no round-trip through an
+  // inbox — and AuthProvider picks it up and swaps the screen out.
+  const signIn = async () => {
     setBusy(true)
     setMsg(null)
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: code.trim(),
-      type: 'email',
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
     })
     setBusy(false)
     if (error) return fail(error)
-    // success → AuthProvider swaps to onboarding
+    // success → AuthProvider swaps to the app (or onboarding)
   }
 
-  /* A real magic link. shouldCreateUser defaults to true, so a first-time rider
-     and a returning one take the identical path — there is no separate "sign up".
-     The link lands on /auth/callback, which exchanges it for a session. */
-  const sendEmail = async () => {
+  /* A new rider. This writes the row in Supabase Auth; the on_auth_user_created
+     trigger creates the matching profile row the rest of the app reads, so there
+     is nothing to insert from here.
+
+     Two outcomes, and both are normal. With "Confirm email" off, signUp returns a
+     session and the rider goes straight to onboarding. With it on there is no
+     session yet — the account exists but is unverified — so say that plainly
+     instead of appearing to hang on a button that did in fact work. */
+  const signUp = async () => {
+    if (password.length < MIN_PW) return setMsg({ tone: 'bad', text: `Use at least ${MIN_PW} characters.` })
+    if (password !== password2) return setMsg({ tone: 'bad', text: 'Both passwords need to match.' })
+
     setBusy(true)
     setMsg(null)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
       options: { emailRedirectTo: redirectTo() },
     })
     setBusy(false)
     if (error) return fail(error)
-    setSent(true)
+
+    /* Supabase will not tell you an address is taken — that would let anyone probe
+       who has an account — so it returns a user with an EMPTY identities array
+       instead. That is the only signal we get, and without reading it the rider
+       sits on "check your inbox" for a mail that never comes. */
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setAuthMode('signin')
+      setPassword2('')
+      return setMsg({ tone: 'bad', text: 'That email already has an account. Sign in instead.' })
+    }
+
+    if (data?.session) return // straight in → AuthProvider swaps to onboarding
+    setConfirmSent(true)
+  }
+
+  /* Forgot password. Mails a recovery link that lands on /auth/reset, which is
+     where the new password is actually chosen.
+
+     The confirmation deliberately doesn't say whether that address has an account.
+     Anyone can type any email into this box, so a truthful "no account here" would
+     turn the login screen into a tool for finding out who rides with us. */
+  const forgotPassword = async () => {
+    const address = email.trim().toLowerCase()
+    if (!address.includes('@') || address.length < 4)
+      return setMsg({ tone: 'bad', text: 'Type your email address above first, then tap this.' })
+
+    setBusy(true)
+    setMsg(null)
+    const { error } = await supabase.auth.resetPasswordForEmail(address, { redirectTo: resetRedirectTo() })
+    setBusy(false)
+    if (error) return fail(error)
+    setResetSent(true)
   }
 
   // Switching doors resets whatever the last one was waiting on.
   const go = (next) => {
     setMode(next)
     setSent(false)
+    setConfirmSent(false)
+    setResetSent(false)
     setCode('')
+    setPassword('')
+    setPassword2('')
+    setShowPw(false)
     setMsg(null)
   }
 
-  // DEV ONLY: mint a throwaway session server-side, then establish it here.
-  const testLogin = async () => {
-    setBusy(true)
+  // Swapping between "sign in" and "create account" inside the email door.
+  const swapAuthMode = () => {
+    setAuthMode((m) => (m === 'signin' ? 'signup' : 'signin'))
+    setPassword2('')
+    setShowPw(false)
+    setResetSent(false)
     setMsg(null)
-    try {
-      const res = await fetch('/api/dev-login', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Test login is unavailable.')
-      const { error } = await supabase.auth.verifyOtp({ token_hash: json.tokenHash, type: 'email' })
-      if (error) throw error
-      // success → AuthProvider swaps to onboarding
-    } catch (e) {
-      fail(e)
-      setBusy(false)
-    }
   }
+
+  const isSignup = authMode === 'signup'
+  const emailOk = email.trim().length > 3 && email.includes('@')
+  // Creating an account has to clear the length bar before the button lights up;
+  // signing in must not, because an old account may predate that rule.
+  const canSubmitEmail = busy
+    ? false
+    : isSignup
+      ? emailOk && password.length >= MIN_PW && password2.length >= MIN_PW
+      : emailOk && password.length > 0
+  const submitEmail = () => (isSignup ? signUp() : signIn())
 
   return (
     <div className={styles.page}>
@@ -206,7 +277,7 @@ export default function SignIn() {
         <div className={styles.panelInner}>
           <div className={styles.brand}>
             <img src="/icon.png" alt="" width={60} height={60} />
-            <h1>Sign in to Zurvo</h1>
+            <h1>{mode === 'email' && isSignup ? 'Create your Zurvo account' : 'Sign in to Zurvo'}</h1>
             <p>Ride with people. Not with strangers.</p>
           </div>
 
@@ -239,7 +310,10 @@ export default function SignIn() {
                 {providers.email && (
                   <button
                     className={providers.phone || providers.google ? styles.outline : 'cta'}
-                    onClick={() => go('email')}
+                    onClick={() => {
+                      setAuthMode('signin')
+                      go('email')
+                    }}
                   >
                     Continue with email
                   </button>
@@ -290,66 +364,131 @@ export default function SignIn() {
 
       {mode === 'email' && (
         <div className={styles.form}>
-          {!sent ? (
+          {resetSent ? (
+            /* Worded so it reveals nothing: "if there's an account" is true whether
+               or not there is one — see forgotPassword. */
+            <div className={styles.sentBox}>
+              <Envelope />
+              <h2>Check your inbox</h2>
+              <p>
+                If there’s an account for <b>{email.trim().toLowerCase()}</b>, we’ve sent a link to set a new
+                password. It expires in an hour.
+              </p>
+              <button
+                className="cta"
+                onClick={() => {
+                  setResetSent(false)
+                  setPassword('')
+                }}
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : confirmSent ? (
+            /* The account is already created — the only thing left is the click.
+               Say that, so nobody signs up a second time thinking it failed. */
+            <div className={styles.sentBox}>
+              <Envelope />
+              <h2>Confirm your email</h2>
+              <p>
+                Your account is created. We emailed <b>{email.trim().toLowerCase()}</b> — open the link in it, then
+                come back and sign in with your password.
+              </p>
+              <button
+                className="cta"
+                onClick={() => {
+                  setConfirmSent(false)
+                  setAuthMode('signin')
+                  setPassword2('')
+                }}
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
             <>
               <label className={styles.field}>
                 <span>Email address</span>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && email.includes('@') && !busy && sendEmail()}
+                  onKeyDown={(e) => e.key === 'Enter' && canSubmitEmail && submitEmail()}
                   inputMode="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   autoFocus
                 />
               </label>
-              <button className="cta" onClick={sendEmail} disabled={busy || !email.includes('@')} data-busy={busy}>
-                {busy ? 'Sending…' : 'Send magic link'}
+
+              <label className={styles.field}>
+                <span>{isSignup ? 'Set a password' : 'Password'}</span>
+                {/* Show/hide is not a nicety on a phone: a typo in a masked field
+                    is invisible, and the rider has no other way to find it. */}
+                <div className={styles.pwWrap}>
+                  <input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && canSubmitEmail && submitEmail()}
+                    type={showPw ? 'text' : 'password'}
+                    autoComplete={isSignup ? 'new-password' : 'current-password'}
+                    placeholder={isSignup ? `At least ${MIN_PW} characters` : '••••••••'}
+                  />
+                  <button
+                    type="button"
+                    className={styles.reveal}
+                    onClick={() => setShowPw((s) => !s)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                  >
+                    {showPw ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </label>
+
+              {isSignup && (
+                <label className={styles.field}>
+                  <span>Confirm password</span>
+                  <input
+                    value={password2}
+                    onChange={(e) => setPassword2(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && canSubmitEmail && submitEmail()}
+                    type={showPw ? 'text' : 'password'}
+                    autoComplete="new-password"
+                    placeholder="Type it once more"
+                  />
+                </label>
+              )}
+
+              {/* Only someone who already has a password can have forgotten it. */}
+              {!isSignup && (
+                <button type="button" className={styles.forgot} onClick={forgotPassword} disabled={busy}>
+                  Forgot password?
+                </button>
+              )}
+
+              <button className="cta" onClick={submitEmail} disabled={!canSubmitEmail} data-busy={busy}>
+                {busy
+                  ? isSignup
+                    ? 'Creating account…'
+                    : 'Signing in…'
+                  : isSignup
+                    ? 'Create account'
+                    : 'Sign in'}
               </button>
-              <p className={styles.hint}>No password. We’ll email you a link that signs you in.</p>
-            </>
-          ) : (
-            <div className={styles.sentBox}>
-              <Envelope />
-              <h2>Check your inbox</h2>
-              <p>
-                We emailed <b>{email.trim()}</b>. Tap the link, or type the code from that email below.
+
+              <p className={styles.hint}>
+                {isSignup
+                  ? 'Your name, city, and bike come next — this is just the account.'
+                  : 'You’ll stay signed in on this device until you sign out.'}
               </p>
 
-              {/* The code path works from any device — see verifyEmailCode. */}
-              <label className={`${styles.field} ${styles.codeField}`}>
-                <span>6-digit code</span>
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  onKeyDown={(e) => e.key === 'Enter' && code.trim().length >= 6 && !busy && verifyEmailCode()}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="······"
-                  autoFocus
-                />
-              </label>
-              <button
-                className="cta"
-                onClick={verifyEmailCode}
-                disabled={busy || code.trim().length < 6}
-                data-busy={busy}
-              >
-                {busy ? 'Verifying…' : 'Verify & continue'}
-              </button>
-
-              <button className={styles.text} onClick={sendEmail} disabled={busy}>
-                {busy ? 'Sending…' : 'Send it again'}
-              </button>
-            </div>
-          )}
-
-          {/* Dev-only escape hatch, so a rate-limited inbox never locks you out. */}
-          {IS_DEV && !sent && (
-            <button className={styles.devBtn} onClick={testLogin} disabled={busy}>
-              Dev: skip email, log me in
-            </button>
+              <div className={styles.swap}>
+                <span>{isSignup ? 'Already have an account?' : 'New to Zurvo?'}</span>
+                <button type="button" onClick={swapAuthMode}>
+                  {isSignup ? 'Sign in' : 'Create an account'}
+                </button>
+              </div>
+            </>
           )}
 
           <button className={styles.text} onClick={() => go('choose')}>
