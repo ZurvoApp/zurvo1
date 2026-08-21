@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { PROFILE_COLUMNS } from '@/lib/api'
 
 /* Holds the current session and the rider's profile for the whole app. One
    subscription to Supabase auth, one profile fetch — every screen reads from
@@ -29,10 +30,10 @@ export default function AuthProvider({ children }) {
   const fetchProfile = async (userId) => {
     // The profile row is created by a DB trigger on sign-up, which can lag the
     // session by a beat — so if it's not there yet, retry once before giving up.
-    let { data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle()
+    let { data } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('user_id', userId).maybeSingle()
     if (!data) {
       await new Promise((r) => setTimeout(r, 900))
-      ;({ data } = await supabase.from('profiles').select('*').eq('user_id', userId).maybeSingle())
+      ;({ data } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('user_id', userId).maybeSingle())
     }
     return data ?? null
   }
