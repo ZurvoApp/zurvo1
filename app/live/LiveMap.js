@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import styles from './live.module.css'
 
 /* The street map. Leaflet is loaded from its CDN on demand — it never ships in
    the app bundle, so a rider who never opens Live never downloads a map engine.
@@ -61,6 +62,11 @@ export default function LiveMap({ positions, onError }) {
   const markers = useRef(new Map()) // riderId -> Leaflet marker
   const fitted = useRef(false)
   const L = useRef(null)
+  const [locating, setLocating] = useState(false)
+  // The recenter button reads positions inside a click handler, so keep the
+  // latest array in a ref rather than closing over a stale render's copy.
+  const positionsRef = useRef(positions)
+  positionsRef.current = positions
   // Map readiness is STATE, not just a ref: the map loads async (CDN), and the
   // marker effect below must re-run the moment it's live — otherwise pins that
   // arrived while the map was still loading would never be drawn.
@@ -145,5 +151,63 @@ export default function LiveMap({ positions, onError }) {
     }
   }, [positions, ready])
 
-  return <div ref={holder} style={{ position: 'absolute', inset: 0 }} aria-label="Live map" />
+  /* Recenter on the rider. If they're sharing, their own pin is already on the
+     map — snap to it instantly, no GPS round-trip. If not (no "me" pin yet), ask
+     the device directly, which also covers the case where the map has drifted
+     after the initial fit. */
+  const recenter = () => {
+    const m = map.current
+    if (!m) return
+
+    const me = positionsRef.current.find((p) => p.isMe && p.lat != null && p.lng != null)
+    if (me) {
+      m.setView([me.lat, me.lng], Math.max(m.getZoom(), 15), { animate: true })
+      return
+    }
+
+    if (!('geolocation' in navigator)) {
+      onErrorRef.current?.(new Error('Location isn’t available on this device.'))
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        map.current?.setView([pos.coords.latitude, pos.coords.longitude], 15, { animate: true })
+      },
+      (err) => {
+        setLocating(false)
+        onErrorRef.current?.(
+          new Error(err?.code === 1 ? 'Location permission denied. Allow it to find you.' : 'Couldn’t get your location.'),
+        )
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
+    )
+  }
+
+  return (
+    <>
+      <div ref={holder} style={{ position: 'absolute', inset: 0 }} aria-label="Live map" />
+      <button
+        type="button"
+        className={styles.recenter}
+        onClick={recenter}
+        disabled={locating}
+        aria-busy={locating}
+        aria-label="Recenter on my location"
+        title="Recenter on my location"
+      >
+        {locating ? <span className={styles.recenterSpin} aria-hidden="true" /> : <LocateIcon />}
+      </button>
+    </>
+  )
+}
+
+function LocateIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
 }

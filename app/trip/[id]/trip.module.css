@@ -201,3 +201,24 @@
 }
 .footer .price { font-size: 21px; line-height: 1.05; }
 .footer :global(.cta) { flex: 1; padding: 15px; }
+
+/* Why the seat wasn't taken — full, closed, not signed in. It sits above the
+   footer bar rather than replacing the button, so the reason and the retry are
+   on screen together. */
+.joinError {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 6;
+  max-width: min(420px, calc(100vw - 32px));
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--stop);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--t-1);
+}

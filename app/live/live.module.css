@@ -171,6 +171,57 @@
 .back:active {
   transform: scale(0.9);
 }
+
+/* Recenter-on-me control. Bottom-right, lifted above the © OpenStreetMap line so
+   it never sits on the attribution. Same glass treatment as .back. */
+.recenter {
+  position: absolute;
+  right: 12px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 500;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(10, 12, 16, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.recenter:active {
+  transform: scale(0.9);
+}
+.recenter:disabled {
+  cursor: progress;
+}
+@media (hover: hover) {
+  .recenter:hover {
+    color: var(--accent);
+  }
+}
+
+.recenterSpin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  animation: recenterSpin 640ms linear infinite;
+}
+@keyframes recenterSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recenterSpin {
+    animation-duration: 1600ms;
+  }
+}
 .mapTitle {
   position: absolute;
   top: calc(12px + env(safe-area-inset-top));

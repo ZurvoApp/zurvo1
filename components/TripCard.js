@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { fill, knownRiders, rupees, seatsLeft, showScarcity } from '@/lib/data'
 import { copy } from '@/lib/verticals'
 import { Faces, Lock } from './Trust'
+import { CoverImage } from './CoverImage'
 import styles from './tripcard.module.css'
 
 /* The card everywhere except the hero.
@@ -20,7 +21,7 @@ export function TripCard({ trip, wide = false }) {
       data-vertical={trip.vertical}
     >
       <div className={styles.photo}>
-        <img src={trip.photo} alt="" loading="lazy" decoding="async" />
+        <CoverImage photo={trip.photo} title={trip.title} loading="lazy" decoding="async" />
         <div className={styles.scrim} />
 
         {/* only ever one flag, and only when it is true */}
@@ -60,7 +61,7 @@ export function TripRow({ trip }) {
   const known = knownRiders(trip)
   return (
     <Link href={`/trip/${trip.id}/`} className={styles.row} data-vertical={trip.vertical}>
-      <img src={trip.photo} alt="" loading="lazy" decoding="async" />
+      <CoverImage photo={trip.photo} title={trip.title} loading="lazy" decoding="async" />
       <div>
         <h3>{trip.title}</h3>
         <p className={styles.facts}>

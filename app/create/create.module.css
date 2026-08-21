@@ -67,6 +67,77 @@
   color: var(--t-3);
 }
 
+/* ---------- cover photo picker ---------- */
+.photoPicker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-1);
+  /* dashed while empty (a drop zone), solid once it holds a real photo */
+  border: 1.5px dashed var(--line);
+  transition: border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.photoPicker[data-has='true'] {
+  border-style: solid;
+  border-color: var(--line);
+}
+.photoPicker:active { border-color: var(--accent); }
+@media (hover: hover) {
+  .photoPicker:hover { border-color: var(--accent); background: var(--bg-2); }
+}
+.photoPicker[aria-busy='true'] { cursor: progress; }
+
+.photoPreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* the "Change photo" affordance sits on a scrim so it reads over any image */
+.photoOverlay {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(10, 10, 15, 0.6);
+  backdrop-filter: blur(8px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.photoEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  color: var(--t-2);
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 600;
+}
+.photoEmpty svg { color: var(--t-3); }
+
+.photoErr {
+  display: block;
+  margin-top: 7px;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--stop);
+}
+
 .pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
