@@ -124,7 +124,7 @@ co-riders' maps through Supabase Realtime.
 
 | Table | Holds |
 | --- | --- |
-| `profiles` | Riders and organisers, linked to an auth user on sign-up |
+| `profiles` | Riders and organisers, linked to an auth user on sign-up. Carries the rider’s email, readable only by the dashboard and service role |
 | `trips` | Everything a trip card and trip page render, with vertical and difficulty guarded so adding a world is a one-line change |
 | `trip_riders` | Who is going on each trip |
 | `bookings` | A rider's paid seat and its status |
@@ -173,9 +173,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=      # server-only, never prefixed NEXT_PUBLIC
 ```
 
-Apply the database migrations in `supabase/migrations/` to your project, in
-order (`0001_init.sql`, then `0002_live_positions.sql`), via the Supabase SQL
-editor or CLI. Then:
+Apply every file in `supabase/migrations/` to your project **in numerical
+order** (`0001_init.sql` → `0005_profile_email.sql`), via the Supabase SQL editor
+or CLI. Then, under Authentication → Sign In / Providers → Email, turn OFF
+**Confirm email** — sign-up is meant to end in onboarding, not in an inbox. Then:
 
 ```bash
 npm run dev      # development server

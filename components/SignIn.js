@@ -39,7 +39,6 @@ export default function SignIn() {
   const [showPw, setShowPw] = useState(false)
   const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
-  const [confirmSent, setConfirmSent] = useState(false) // signed up; the inbox has to confirm first
   const [resetSent, setResetSent] = useState(false) // password-recovery mail is on its way
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
@@ -87,8 +86,10 @@ export default function SignIn() {
     const t = (raw || '').toLowerCase()
     if (t.includes('invalid login credentials'))
       return 'That email and password don’t match an account. Check the password, or create an account below.'
+    // Only reachable for an account made while the project still required
+    // confirmation. Nothing the rider does on this screen can clear it.
     if (t.includes('email not confirmed'))
-      return 'Confirm your email first — open the link we sent when you signed up.'
+      return 'This account was never verified and can’t be signed into. Get in touch and we’ll sort it out.'
     if (t.includes('already registered') || t.includes('already been registered'))
       return 'That email already has an account. Sign in instead.'
     if (t.includes('password should be')) return `Password is too short — use at least ${MIN_PW} characters.`
@@ -150,36 +151,63 @@ export default function SignIn() {
      trigger creates the matching profile row the rest of the app reads, so there
      is nothing to insert from here.
 
-     Two outcomes, and both are normal. With "Confirm email" off, signUp returns a
-     session and the rider goes straight to onboarding. With it on there is no
-     session yet — the account exists but is unverified — so say that plainly
-     instead of appearing to hang on a button that did in fact work. */
+     Sign-up is meant to end in the app, not in an inbox: password set, straight
+     into onboarding, one continuous move. That's what happens whenever the
+     project has "Confirm email" switched off — signUp hands back a session and
+     AuthProvider takes it from there.
+
+     The sign-in attempt after it is deliberate belt-and-braces. Supabase doesn't
+     always return the session on the signUp call itself, and one extra request is
+     cheaper than a rider bouncing off a door that their own new password would
+     have opened. Only if THAT fails is something actually wrong. */
   const signUp = async () => {
     if (password.length < MIN_PW) return setMsg({ tone: 'bad', text: `Use at least ${MIN_PW} characters.` })
     if (password !== password2) return setMsg({ tone: 'bad', text: 'Both passwords need to match.' })
 
     setBusy(true)
     setMsg(null)
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: { emailRedirectTo: redirectTo() },
-    })
-    setBusy(false)
-    if (error) return fail(error)
+    const address = email.trim().toLowerCase()
+    const { data, error } = await supabase.auth.signUp({ email: address, password })
+
+    if (error) {
+      setBusy(false)
+      return fail(error)
+    }
 
     /* Supabase will not tell you an address is taken — that would let anyone probe
        who has an account — so it returns a user with an EMPTY identities array
        instead. That is the only signal we get, and without reading it the rider
-       sits on "check your inbox" for a mail that never comes. */
+       sits on a screen waiting for something that is never going to happen. */
     if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setBusy(false)
       setAuthMode('signin')
       setPassword2('')
       return setMsg({ tone: 'bad', text: 'That email already has an account. Sign in instead.' })
     }
 
-    if (data?.session) return // straight in → AuthProvider swaps to onboarding
-    setConfirmSent(true)
+    if (data?.session) {
+      setBusy(false)
+      return // straight in → AuthProvider swaps to onboarding
+    }
+
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: address, password })
+    setBusy(false)
+    if (!signInErr) return // in → onboarding
+
+    /* Only reachable when the project still demands a confirmed address. That's a
+       server-side setting, so the rider can't fix it and shouldn't be shown the
+       plumbing — but whoever is running the app needs to know exactly which switch
+       it is, so it goes to the console. */
+    console.error(
+      '[Zurvo] Sign-up made an account but no session: this project still has email confirmation on. ' +
+        'Supabase → Authentication → Sign In / Providers → Email → turn OFF "Confirm email".',
+    )
+    setMsg({
+      tone: 'bad',
+      text: 'Your account was created, but we couldn’t sign you in. Try signing in with that email and password.',
+    })
+    setAuthMode('signin')
+    setPassword2('')
   }
 
   /* Forgot password. Mails a recovery link that lands on /auth/reset, which is
@@ -205,7 +233,6 @@ export default function SignIn() {
   const go = (next) => {
     setMode(next)
     setSent(false)
-    setConfirmSent(false)
     setResetSent(false)
     setCode('')
     setPassword('')
@@ -225,14 +252,16 @@ export default function SignIn() {
 
   const isSignup = authMode === 'signup'
   const emailOk = email.trim().length > 3 && email.includes('@')
-  // Creating an account has to clear the length bar before the button lights up;
-  // signing in must not, because an old account may predate that rule.
-  const canSubmitEmail = busy
-    ? false
-    : isSignup
-      ? emailOk && password.length >= MIN_PW && password2.length >= MIN_PW
-      : emailOk && password.length > 0
+  /* The button is live as soon as the fields are filled — the password RULES are
+     checked on click, not by greying it out. A disabled button can only say "no";
+     it can't say why, and a rider who types a six-character password and gets no
+     response at all has no way to learn that eight was the number. */
+  const canSubmitEmail = !busy && emailOk && password.length > 0 && (!isSignup || password2.length > 0)
   const submitEmail = () => (isSignup ? signUp() : signIn())
+  // Shown live under the field while creating an account, so the bar is visible
+  // before it's hit rather than only after it's missed.
+  const pwShort = isSignup && password.length > 0 && password.length < MIN_PW
+  const pwMismatch = isSignup && password2.length > 0 && password !== password2
 
   return (
     <div className={styles.page}>
@@ -384,27 +413,6 @@ export default function SignIn() {
                 Back to sign in
               </button>
             </div>
-          ) : confirmSent ? (
-            /* The account is already created — the only thing left is the click.
-               Say that, so nobody signs up a second time thinking it failed. */
-            <div className={styles.sentBox}>
-              <Envelope />
-              <h2>Confirm your email</h2>
-              <p>
-                Your account is created. We emailed <b>{email.trim().toLowerCase()}</b> — open the link in it, then
-                come back and sign in with your password.
-              </p>
-              <button
-                className="cta"
-                onClick={() => {
-                  setConfirmSent(false)
-                  setAuthMode('signin')
-                  setPassword2('')
-                }}
-              >
-                Back to sign in
-              </button>
-            </div>
           ) : (
             <>
               <label className={styles.field}>
@@ -443,6 +451,11 @@ export default function SignIn() {
                     {showPw ? 'Hide' : 'Show'}
                   </button>
                 </div>
+                {pwShort && (
+                  <span className={styles.rule}>
+                    {MIN_PW - password.length} more character{MIN_PW - password.length === 1 ? '' : 's'} to go
+                  </span>
+                )}
               </label>
 
               {isSignup && (
@@ -456,6 +469,7 @@ export default function SignIn() {
                     autoComplete="new-password"
                     placeholder="Type it once more"
                   />
+                  {pwMismatch && <span className={styles.rule}>These don’t match yet</span>}
                 </label>
               )}
 

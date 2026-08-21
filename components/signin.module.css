@@ -393,3 +393,18 @@
 }
 .swap button:hover { opacity: 0.82; }
 .swap button:active { opacity: 0.65; }
+
+/* The live requirement note under a password field. Written as a countdown
+   rather than a complaint — it tells you what's left while you're still typing,
+   instead of scolding you once you've stopped. Needs .field .rule to outrank the
+   .field span label rule above. */
+.field .rule {
+  display: block;
+  margin: 8px 0 0;
+  font-family: var(--body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t-3);
+}
