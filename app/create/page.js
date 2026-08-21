@@ -30,10 +30,13 @@ const BLANK = {
   covers: '',
 }
 
-/* The one fee Zurvo charges anyone: a one-time organiser ID check. It is taken at
-   the first publish, remembered forever after, and never charged again. Kept in
-   localStorage so "one-time" is true across reloads, not just within a session. */
-const ORG_FEE = 99
+/* Organiser onboarding is FREE for now — no ID-verification fee while Zurvo is
+   signing up its first organisers. Set ORG_FEE back to 99 to turn the paid
+   one-time verification on again: the Verify screen and the localStorage gate
+   both branch on CHARGE_FOR_VERIFY, so flipping this one number restores the
+   whole paid flow. */
+const ORG_FEE = 0
+const CHARGE_FOR_VERIFY = ORG_FEE > 0
 const VERIFIED_KEY = 'zurvo:organiser-verified'
 
 export default function Create() {
@@ -91,8 +94,9 @@ export default function Create() {
     }
   }
 
-  // Publishing while unverified routes through the one-time fee; verified goes live.
-  const onPublish = () => (verified ? publish() : setStage('verify'))
+  // While onboarding is free, publishing goes straight live. With the fee on, an
+  // unverified organiser routes through the one-time verification first.
+  const onPublish = () => (!CHARGE_FOR_VERIFY || verified ? publish() : setStage('verify'))
 
   const onVerified = () => {
     try {
@@ -254,7 +258,12 @@ export default function Create() {
           </button>
           {error && <p className={styles.publishError}>{error}</p>}
           <p className={styles.footNote}>
-            {verified ? (
+            {!CHARGE_FOR_VERIFY ? (
+              <>
+                <span className={styles.verifiedInline}>Free to publish right now.</span> No organiser fee while
+                Zurvo is getting started — and riders’ payments are always yours in full.
+              </>
+            ) : verified ? (
               <>
                 <span className={styles.verifiedInline}>✓ You’re a verified organiser.</span> Nothing stands
                 between this and going live.
