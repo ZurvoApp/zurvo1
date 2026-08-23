@@ -334,6 +334,13 @@
 }
 
 /* ---------- roster ---------- */
+.updates {
+  margin: 4px 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .roster {
   list-style: none;
   margin: 0;

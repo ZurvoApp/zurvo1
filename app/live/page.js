@@ -5,6 +5,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
+import TripUpdates from '@/components/TripUpdates'
 import { getLiveTrips, getTripPositions, sharePosition, stopSharing, subscribeToPositions, getMyId, appendTrackPoint } from '@/lib/api'
 import { watchPosition, haversineKm } from '@/lib/geo'
 import styles from './live.module.css'
@@ -270,6 +271,12 @@ function LiveRide({ trip, myId, onBack }) {
               </>
             )}
           </button>
+        </div>
+
+        {/* The organiser's live updates — the rider's half of the loop. */}
+        <div className={styles.updates}>
+          <p className="sec-label">From the organiser</p>
+          <TripUpdates tripId={trip.id} />
         </div>
 
         <ul className={styles.roster}>
