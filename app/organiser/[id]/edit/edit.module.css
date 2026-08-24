@@ -1,0 +1,14 @@
+.err {
+  display: block;
+  margin-top: 8px;
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--stop);
+}
+.note {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t-3);
+  text-align: center;
+}

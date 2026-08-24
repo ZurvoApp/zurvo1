@@ -171,6 +171,69 @@
 .back:active {
   transform: scale(0.9);
 }
+
+/* Map view controls. A bottom-right stack, lifted above the © OpenStreetMap line
+   so nothing sits on the attribution. Same glass treatment as .back. */
+.mapControls {
+  position: absolute;
+  right: 12px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mapBtn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(10, 12, 16, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.mapBtn:active {
+  transform: scale(0.9);
+}
+.mapBtn:disabled {
+  cursor: progress;
+}
+/* lit while follow-me is on */
+.mapBtn[data-active] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 18%, rgba(10, 12, 16, 0.72));
+}
+@media (hover: hover) {
+  .mapBtn:hover {
+    color: var(--accent);
+  }
+}
+
+.mapBtnSpin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  animation: mapBtnSpin 640ms linear infinite;
+}
+@keyframes mapBtnSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mapBtnSpin {
+    animation-duration: 1600ms;
+  }
+}
 .mapTitle {
   position: absolute;
   top: calc(12px + env(safe-area-inset-top));
@@ -271,6 +334,13 @@
 }
 
 /* ---------- roster ---------- */
+.updates {
+  margin: 4px 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .roster {
   list-style: none;
   margin: 0;
@@ -292,10 +362,22 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--bg-2);
   border: 1px solid transparent;
+  text-align: left;
+  transition: transform var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+/* the whole row is a button now — tapping it jumps the map onto that rider */
+.rider:active {
+  transform: scale(0.985);
+}
+@media (hover: hover) {
+  .rider:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
 }
 .rider[data-me='true'] {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);

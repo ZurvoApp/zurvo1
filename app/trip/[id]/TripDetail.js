@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Reveal from '@/components/Reveal'
+import { CoverImage } from '@/components/CoverImage'
 import { EscrowBlock, Faces, Organiser, Seats } from '@/components/Trust'
+import { bookTrip } from '@/lib/api'
 import { knownRiders, rupees, seatsLeft } from '@/lib/data'
 import styles from './trip.module.css'
 
@@ -17,11 +19,30 @@ import styles from './trip.module.css'
 export default function TripDetail({ trip }) {
   const router = useRouter()
   const [showCovers, setShowCovers] = useState(false)
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState(null)
   const scroller = useRef(null)
   const hero = useRef(null)
   const known = knownRiders(trip)
   const listed = trip.riders.slice(0, 3)
   const rest = trip.riders.length - listed.length
+
+  /* The seat is taken HERE, before the confirmation screen renders — that screen
+     reads a booking, it does not create one. Navigating first and writing later
+     is how you end up congratulating someone for a seat that was already gone. */
+  const join = async () => {
+    setJoining(true)
+    setJoinError(null)
+    try {
+      await bookTrip(trip.id)
+      router.push(`/booking/${trip.id}/`)
+    } catch (e) {
+      // book_trip raises in plain English — full, closed, not signed in — so the
+      // rider gets the actual reason instead of "something went wrong".
+      setJoinError(e?.message || 'That didn’t go through. Try again.')
+      setJoining(false)
+    }
+  }
 
   useEffect(() => {
     document.documentElement.dataset.vertical = trip.vertical
@@ -54,7 +75,7 @@ export default function TripDetail({ trip }) {
     <>
       <div className={styles.scroller} ref={scroller}>
         <div className={styles.photo}>
-          <img src={trip.photo} alt="" ref={hero} fetchPriority="high" decoding="async" />
+          <CoverImage photo={trip.photo} title={trip.title} ref={hero} fetchPriority="high" decoding="async" />
           <div className={styles.scrim} />
           <button className={styles.back} onClick={() => router.back()} aria-label="Back">
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
@@ -109,9 +130,9 @@ export default function TripDetail({ trip }) {
                 </li>
               )}
             </ul>
-            <a className="link" href="#group">
+            <Link className="link" href={`/trip/${trip.id}/group/`}>
               Message the group before you book
-            </a>
+            </Link>
           </Reveal>
 
           <div className="rule" />
@@ -192,10 +213,11 @@ export default function TripDetail({ trip }) {
             </small>
           )}
         </div>
-        <Link href={`/booking/${trip.id}/`} className="cta">
-          Request to join
-        </Link>
+        <button className="cta" onClick={join} disabled={joining}>
+          {joining ? 'Holding your seat…' : 'Request to join'}
+        </button>
       </footer>
+      {joinError && <p className={styles.joinError}>{joinError}</p>}
     </>
   )
 }

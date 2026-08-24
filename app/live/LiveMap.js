@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import styles from './live.module.css'
 
 /* The street map. Leaflet is loaded from its CDN on demand — it never ships in
    the app bundle, so a rider who never opens Live never downloads a map engine.
@@ -38,38 +39,58 @@ function loadLeaflet() {
   return leafletPromise
 }
 
-// A pin is a coloured disc with initials, and a speed tag underneath. Built as
-// raw HTML because Leaflet renders markers in its own panes, out of reach of the
-// CSS-module scope — inline styles are the reliable way to reach them.
-function pinHtml({ initials, tint, speedKmh, isMe }) {
+// A pin is a coloured disc with initials, and a speed tag underneath. When the
+// rider is moving and the fix knows their heading, a small arrow rides the rim
+// pointing the way they're travelling. Built as raw HTML because Leaflet renders
+// markers in its own panes, out of reach of the CSS-module scope.
+function pinHtml({ initials, tint, speedKmh, heading, isMe }) {
   const color = isMe ? '#ff6a2b' : tint || '#5b8def'
-  const ring = isMe ? 'box-shadow:0 0 0 3px rgba(255,106,43,.35),0 4px 12px rgba(0,0,0,.5);' : 'box-shadow:0 4px 12px rgba(0,0,0,.5);'
+  const ring = isMe
+    ? 'box-shadow:0 0 0 3px rgba(255,106,43,.35),0 4px 12px rgba(0,0,0,.5);'
+    : 'box-shadow:0 4px 12px rgba(0,0,0,.5);'
+  // Heading arrow only when actually moving with a known bearing — a stationary
+  // rider has no direction, and a north-snapped arrow would be a lie.
+  const arrow =
+    heading != null && speedKmh > 0
+      ? `<div style="position:absolute;top:-9px;left:50%;width:0;height:0;
+          border-left:5px solid transparent;border-right:5px solid transparent;
+          border-bottom:8px solid ${color};transform:translateX(-50%) rotate(${heading}deg);
+          transform-origin:50% 26px;"></div>`
+      : ''
   return `
     <div style="display:flex;flex-direction:column;align-items:center;transform:translateY(-4px)">
-      <div style="width:34px;height:34px;border-radius:50%;background:${color};color:#fff;
+      <div style="position:relative;width:34px;height:34px;border-radius:50%;background:${color};color:#fff;
         display:flex;align-items:center;justify-content:center;font:700 13px/1 var(--display,sans-serif);
-        border:2px solid #fff;${ring}">${initials}</div>
+        border:2px solid #fff;${ring}">${initials}${arrow}</div>
       <div style="margin-top:3px;padding:1px 6px;border-radius:6px;background:rgba(10,12,16,.86);
         color:#fff;font:600 10px/1.4 var(--mono,monospace);white-space:nowrap;letter-spacing:.02em;">
         ${speedKmh} km/h</div>
     </div>`
 }
 
-export default function LiveMap({ positions, onError }) {
+const LiveMap = forwardRef(function LiveMap({ positions, onError }, ref) {
   const holder = useRef(null)
   const map = useRef(null)
   const markers = useRef(new Map()) // riderId -> Leaflet marker
   const fitted = useRef(false)
   const L = useRef(null)
-  // Map readiness is STATE, not just a ref: the map loads async (CDN), and the
-  // marker effect below must re-run the moment it's live — otherwise pins that
-  // arrived while the map was still loading would never be drawn.
   const [ready, setReady] = useState(false)
-  // onError is passed as an inline arrow by the parent — a new reference every
-  // render. Keep it in a ref so the build effect can depend on NOTHING and run
-  // exactly once per mount, instead of tearing the map down on every re-render.
+  const [locating, setLocating] = useState(false)
+  // "Follow me" keeps the map centred on my pin as I move, like navigation mode.
+  // A ref shadows the state so the one-time map listeners can read it live.
+  const [following, setFollowing] = useState(false)
+  const followingRef = useRef(false)
+  followingRef.current = following
+  // The view controls read positions inside click handlers, so keep the latest
+  // array in a ref rather than closing over a stale render's copy.
+  const positionsRef = useRef(positions)
+  positionsRef.current = positions
+
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
+
+  const myPin = () => positionsRef.current.find((p) => p.isMe && p.lat != null && p.lng != null)
+  const allPts = () => positionsRef.current.filter((p) => p.lat != null && p.lng != null).map((p) => [p.lat, p.lng])
 
   // Build the map once.
   useEffect(() => {
@@ -82,9 +103,10 @@ export default function LiveMap({ positions, onError }) {
         const m = lib.map(holder.current, { zoomControl: false, attributionControl: false }).setView([20.5, 78.9], 5)
         lib.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(m)
         lib.control.attribution({ prefix: false, position: 'bottomright' }).addAttribution('© OpenStreetMap').addTo(m)
+        // Grabbing the map by hand means "I want to look somewhere else" — so a
+        // manual pan or a pinch-zoom quietly switches follow-me off.
+        m.on('dragstart', () => followingRef.current && setFollowing(false))
         map.current = m
-        // A map created inside an element that was sized after mount needs a nudge.
-        // Cancelled on unmount: firing this against a removed map would throw.
         sizeTimer = setTimeout(() => m.invalidateSize(), 0)
         setReady(true)
       })
@@ -112,12 +134,7 @@ export default function LiveMap({ positions, onError }) {
     for (const p of positions) {
       if (p.lat == null || p.lng == null) continue
       seen.add(p.riderId)
-      const icon = lib.divIcon({
-        html: pinHtml(p),
-        className: '',
-        iconSize: [40, 52],
-        iconAnchor: [20, 26],
-      })
+      const icon = lib.divIcon({ html: pinHtml(p), className: '', iconSize: [40, 52], iconAnchor: [20, 26] })
       const existing = markers.current.get(p.riderId)
       if (existing) {
         existing.setLatLng([p.lat, p.lng])
@@ -145,5 +162,129 @@ export default function LiveMap({ positions, onError }) {
     }
   }, [positions, ready])
 
-  return <div ref={holder} style={{ position: 'absolute', inset: 0 }} aria-label="Live map" />
+  // While following, ride the map along with my pin on every fresh fix.
+  useEffect(() => {
+    const m = map.current
+    if (!m || !ready || !following) return
+    const me = myPin()
+    if (me) m.setView([me.lat, me.lng], Math.max(m.getZoom(), 15), { animate: true })
+  }, [positions, ready, following])
+
+  const fitAll = () => {
+    const m = map.current
+    if (!m) return
+    const pts = allPts()
+    if (pts.length === 0) return
+    setFollowing(false)
+    if (pts.length === 1) m.setView(pts[0], 15, { animate: true })
+    else m.fitBounds(pts, { padding: [60, 60], maxZoom: 16, animate: true })
+  }
+
+  // The roster taps this to jump the map onto one rider.
+  useImperativeHandle(ref, () => ({
+    focusRider(riderId) {
+      const m = map.current
+      if (!m) return
+      const p = positionsRef.current.find((x) => x.riderId === riderId && x.lat != null && x.lng != null)
+      if (!p) return
+      setFollowing(false) // centring someone else is not the same as following me
+      m.setView([p.lat, p.lng], Math.max(m.getZoom(), 15), { animate: true })
+    },
+    fitAll,
+  }))
+
+  /* Locate / follow. Already following → stop. Otherwise, if my pin is on the map
+     (I'm sharing), snap to it and start following. If it isn't, ask the device
+     directly for a one-off fix — which also covers the map having drifted. */
+  const locate = () => {
+    const m = map.current
+    if (!m) return
+
+    if (following) {
+      setFollowing(false)
+      return
+    }
+
+    const me = myPin()
+    if (me) {
+      m.setView([me.lat, me.lng], Math.max(m.getZoom(), 15), { animate: true })
+      setFollowing(true)
+      return
+    }
+
+    if (!('geolocation' in navigator)) {
+      onErrorRef.current?.(new Error('Location isn’t available on this device.'))
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        map.current?.setView([pos.coords.latitude, pos.coords.longitude], 15, { animate: true })
+      },
+      (err) => {
+        setLocating(false)
+        onErrorRef.current?.(
+          new Error(err?.code === 1 ? 'Location permission denied. Allow it to find you.' : 'Couldn’t get your location.'),
+        )
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 },
+    )
+  }
+
+  const manyLive = positions.filter((p) => p.lat != null).length > 1
+
+  return (
+    <>
+      <div ref={holder} style={{ position: 'absolute', inset: 0 }} aria-label="Live map" />
+
+      <div className={styles.mapControls}>
+        {/* Frame everyone — only offered when there's more than one pin to frame. */}
+        {manyLive && (
+          <button type="button" className={styles.mapBtn} onClick={fitAll} aria-label="Show everyone" title="Show everyone">
+            <FitAllIcon />
+          </button>
+        )}
+        {/* Locate / follow me. Tints accent and stays lit while following. */}
+        <button
+          type="button"
+          className={styles.mapBtn}
+          data-active={following || undefined}
+          onClick={locate}
+          disabled={locating}
+          aria-busy={locating}
+          aria-pressed={following}
+          aria-label={following ? 'Stop following me' : 'Recenter on my location'}
+          title={following ? 'Following you — tap to stop' : 'Recenter on my location'}
+        >
+          {locating ? <span className={styles.mapBtnSpin} aria-hidden="true" /> : <LocateIcon />}
+        </button>
+      </div>
+    </>
+  )
+})
+
+export default LiveMap
+
+function LocateIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function FitAllIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 8.5V5.5A1.5 1.5 0 0 1 5.5 4h3M15.5 4h3A1.5 1.5 0 0 1 20 5.5v3M20 15.5v3a1.5 1.5 0 0 1-1.5 1.5h-3M8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+    </svg>
+  )
 }

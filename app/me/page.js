@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
 import Reveal from '@/components/Reveal'
@@ -118,7 +119,24 @@ export default function Me() {
           </div>
         </Reveal>
 
-        <Reveal i={4}>
+        {/* The doorway to the other side of the app: running trips, not just
+            joining them. Everyone can host, so everyone sees it. */}
+        <Reveal as="p" i={4} className="sec-label" style={{ marginTop: 28 }}>
+          Run trips
+        </Reveal>
+        <Reveal i={5}>
+          <Link href="/organiser/" className={styles.organiserRow}>
+            <div>
+              <b>Organiser hub</b>
+              <span>Publish, edit, post live updates, and finish your rides</span>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        </Reveal>
+
+        <Reveal i={6}>
           <button className="cta" style={{ marginTop: 26 }}>
             Share my rider card
           </button>

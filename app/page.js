@@ -8,6 +8,7 @@ import ModeSwitch from '@/components/ModeSwitch'
 import VerticalTabs from '@/components/VerticalTabs'
 import Reveal from '@/components/Reveal'
 import { TripCard, TripRow } from '@/components/TripCard'
+import { CoverImage } from '@/components/CoverImage'
 import { Faces, KnownRiders, Lock, Organiser, PriceWithEscrow, Seats } from '@/components/Trust'
 import { knownRiders, showScarcity } from '@/lib/data'
 import { getTrips, getOrganisers } from '@/lib/api'
@@ -197,7 +198,7 @@ function Hero({ trip }) {
     <section ref={ref} className={`${styles.hero} ${live ? styles.live : ''}`}>
       <div className={styles.heroPhoto}>
         {/* the hero is the LCP element — it fetches first and decodes off-thread */}
-        <img src={trip.photo} alt="" fetchPriority="high" decoding="async" />
+        <CoverImage photo={trip.photo} title={trip.title} fetchPriority="high" decoding="async" />
         <div className={styles.heroScrim} />
         <span className={styles.pick}>PICKED FOR YOU</span>
       </div>

@@ -7,7 +7,7 @@ import ModeSwitch from '@/components/ModeSwitch'
 import Reveal from '@/components/Reveal'
 import { Lock } from '@/components/Trust'
 import { CITIES, rupees } from '@/lib/data'
-import { createTrip } from '@/lib/api'
+import { createTrip, uploadTripPhoto } from '@/lib/api'
 import { copy, VERTICAL_LIST } from '@/lib/verticals'
 import styles from './create.module.css'
 
@@ -19,6 +19,7 @@ import styles from './create.module.css'
    It asks for exactly the facts a trip card renders. If a field would not appear
    on a card or a trip page, it is not on this form. */
 const BLANK = {
+  photo: '', // the cover photo's public URL, set once the upload finishes
   title: '',
   city: CITIES[0],
   dates: '',
@@ -28,6 +29,8 @@ const BLANK = {
   seatsTotal: '',
   price: '',
   covers: '',
+  meetOn: '',
+  meetAt: '',
 }
 
 /* Organiser onboarding is FREE for now — no ID-verification fee while Zurvo is
@@ -45,6 +48,8 @@ export default function Create() {
   const [stage, setStage] = useState('form') // 'form' | 'verify' | 'published'
   const [verified, setVerified] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [photoError, setPhotoError] = useState(null)
   const [created, setCreated] = useState(null)
   const [error, setError] = useState(null)
 
@@ -65,6 +70,25 @@ export default function Create() {
 
   const c = copy(vertical)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+
+  /* Upload the moment a file is picked, so by publish time the photo is already a
+     URL in the form — the organiser never waits on a spinner at the finish line.
+     Clearing the input's value lets them re-pick the same file after an error. */
+  const pickPhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPhotoError(null)
+    setUploading(true)
+    try {
+      const url = await uploadTripPhoto(file)
+      setF((prev) => ({ ...prev, photo: url }))
+    } catch (err) {
+      setPhotoError(err?.message || 'Could not upload that image.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   /* Difficulty is per-vertical vocabulary, not a shared scale — a Paddle is
      Flatwater/Coastal/Whitewater, never "Beginner". Switching worlds must carry the
@@ -166,7 +190,45 @@ export default function Create() {
           The {c.noun}
         </Reveal>
 
+        {/* The cover photo. It's the first thing a rider sees on the card, so it's
+            the first thing the organiser gives. Uploads on pick; the URL lands in
+            the form and the Publish button unlocks once it's there. */}
         <Reveal i={3}>
+          <div className={styles.field}>
+            <span className={styles.label}>Cover photo</span>
+            <label className={styles.photoPicker} data-has={!!f.photo} aria-busy={uploading}>
+              {f.photo ? (
+                <>
+                  <img src={f.photo} alt="" className={styles.photoPreview} />
+                  <span className={styles.photoOverlay}>
+                    {uploading ? 'Uploading…' : 'Change photo'}
+                  </span>
+                </>
+              ) : (
+                <span className={styles.photoEmpty}>
+                  {uploading ? (
+                    <>
+                      <span className={styles.spin} aria-hidden="true" />
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <PhotoIcon />
+                      Add a cover photo
+                    </>
+                  )}
+                </span>
+              )}
+              <input type="file" accept="image/*" onChange={pickPhoto} disabled={uploading} hidden />
+            </label>
+            <em className={styles.hint}>
+              The one shot that makes a rider stop scrolling. Landscape works best — up to 6&nbsp;MB.
+            </em>
+            {photoError && <em className={styles.photoErr}>{photoError}</em>}
+          </div>
+        </Reveal>
+
+        <Reveal i={4}>
           <Field label="Call it something they can picture">
             <input
               value={f.title}
@@ -199,6 +261,20 @@ export default function Create() {
             </Field>
             <Field label="Distance (km)">
               <input value={f.distanceKm} onChange={set('distanceKm')} inputMode="numeric" placeholder="350" />
+            </Field>
+          </div>
+        </Reveal>
+
+        {/* Where and when the group actually meets. Without these the booking
+            confirmation shows an empty "Meet / At" panel — the one fact a rider
+            reopens that screen for at 5 AM, missing. */}
+        <Reveal i={6}>
+          <div className={styles.pair}>
+            <Field label="Meet on">
+              <input value={f.meetOn} onChange={set('meetOn')} placeholder="Sat 14th, 5:30 AM" />
+            </Field>
+            <Field label="Meet at">
+              <input value={f.meetAt} onChange={set('meetAt')} placeholder="Cafe Coffee Day, Hosur Road" />
             </Field>
           </div>
         </Reveal>
@@ -244,12 +320,19 @@ export default function Create() {
         </Reveal>
 
         <Reveal i={10} className={styles.foot}>
-          <button className="cta" disabled={!ready || publishing} data-busy={publishing} onClick={onPublish}>
+          <button
+            className="cta"
+            disabled={!ready || publishing || uploading}
+            data-busy={publishing}
+            onClick={onPublish}
+          >
             {publishing ? (
               <>
                 <span className={styles.spin} aria-hidden="true" />
                 Publishing…
               </>
+            ) : uploading ? (
+              'Wait for the photo to finish…'
             ) : ready ? (
               `Publish this ${c.noun}`
             ) : (
@@ -280,6 +363,16 @@ export default function Create() {
 
       <BottomNav current="discover" />
     </>
+  )
+}
+
+function PhotoIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+      <circle cx="8.5" cy="10" r="1.6" fill="currentColor" />
+      <path d="m4 17 4.5-4 3 2.5L16 11l4 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

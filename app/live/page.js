@@ -5,6 +5,7 @@ import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
+import TripUpdates from '@/components/TripUpdates'
 import { getLiveTrips, getTripPositions, sharePosition, stopSharing, subscribeToPositions, getMyId, appendTrackPoint } from '@/lib/api'
 import { watchPosition, haversineKm } from '@/lib/geo'
 import styles from './live.module.css'
@@ -113,10 +114,12 @@ function LiveRide({ trip, myId, onBack }) {
   const [error, setError] = useState(null)
   const [now, setNow] = useState(() => Date.now())
 
+  const mapRef = useRef(null) // imperative handle into LiveMap (focusRider, fitAll)
   const stopWatch = useRef(null)
   const sharingRef = useRef(false)
   const lastSent = useRef(0)
   const lastTrack = useRef(null) // last breadcrumb saved to the recorded trail
+  const wakeLock = useRef(null) // screen wake-lock sentinel, held while sharing
 
   const refresh = useCallback(() => {
     getTripPositions(trip.id)
@@ -141,14 +144,38 @@ function LiveRide({ trip, myId, onBack }) {
   useEffect(() => {
     return () => {
       stopWatch.current?.()
+      releaseWake()
       if (sharingRef.current) stopSharing(trip.id)
     }
   }, [trip.id])
+
+  /* Keep the screen awake while sharing — a rider on the road shouldn't have to
+     poke the phone to keep their pin alive. The lock drops when the tab is
+     backgrounded, so re-acquire it whenever we come back to the foreground. */
+  const requestWake = async () => {
+    try {
+      if ('wakeLock' in navigator) wakeLock.current = await navigator.wakeLock.request('screen')
+    } catch {
+      /* denied or unsupported — sharing still works, the screen just may sleep */
+    }
+  }
+  const releaseWake = () => {
+    wakeLock.current?.release?.().catch(() => {})
+    wakeLock.current = null
+  }
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && sharingRef.current && !wakeLock.current) requestWake()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   const goLive = () => {
     setError(null)
     sharingRef.current = true
     setSharing(true)
+    requestWake()
     stopWatch.current = watchPosition(
       (p) => {
         setMyPos(p)
@@ -183,6 +210,7 @@ function LiveRide({ trip, myId, onBack }) {
     lastTrack.current = null
     stopWatch.current?.()
     stopWatch.current = null
+    releaseWake()
     stopSharing(trip.id).then(refresh)
   }
 
@@ -213,7 +241,7 @@ function LiveRide({ trip, myId, onBack }) {
   return (
     <div className={styles.ride}>
       <div className={styles.mapWrap}>
-        <LiveMap positions={merged} onError={(e) => setError(e.message)} />
+        <LiveMap ref={mapRef} positions={merged} onError={(e) => setError(e.message)} />
         <button className={styles.back} onClick={onBack} aria-label="Back to rides">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M11 4 6 9l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -245,6 +273,12 @@ function LiveRide({ trip, myId, onBack }) {
           </button>
         </div>
 
+        {/* The organiser's live updates — the rider's half of the loop. */}
+        <div className={styles.updates}>
+          <p className="sec-label">From the organiser</p>
+          <TripUpdates tripId={trip.id} />
+        </div>
+
         <ul className={styles.roster}>
           {roster.length === 0 ? (
             <li className={styles.rosterEmpty}>
@@ -252,18 +286,27 @@ function LiveRide({ trip, myId, onBack }) {
             </li>
           ) : (
             roster.map((p) => (
-              <li key={p.riderId} className={styles.rider} data-me={p.isMe}>
-                <span className={styles.avatar} style={{ background: p.isMe ? 'var(--accent)' : p.tint || '#5b8def' }}>
-                  {p.initials}
-                </span>
-                <div className={styles.riderInfo}>
-                  <b>{p.isMe ? 'You' : p.name}</b>
-                  <span className={styles.riderSub}>{ago(p.updatedAt, now)}</span>
-                </div>
-                <span className={styles.speed}>
-                  <b>{p.speedKmh}</b>
-                  <em>km/h</em>
-                </span>
+              <li key={p.riderId}>
+                {/* Tapping a rider flies the map to their pin. */}
+                <button
+                  type="button"
+                  className={styles.rider}
+                  data-me={p.isMe}
+                  onClick={() => mapRef.current?.focusRider(p.riderId)}
+                  aria-label={`Center map on ${p.isMe ? 'you' : p.name}`}
+                >
+                  <span className={styles.avatar} style={{ background: p.isMe ? 'var(--accent)' : p.tint || '#5b8def' }}>
+                    {p.initials}
+                  </span>
+                  <div className={styles.riderInfo}>
+                    <b>{p.isMe ? 'You' : p.name}</b>
+                    <span className={styles.riderSub}>{ago(p.updatedAt, now)}</span>
+                  </div>
+                  <span className={styles.speed}>
+                    <b>{p.speedKmh}</b>
+                    <em>km/h</em>
+                  </span>
+                </button>
               </li>
             ))
           )}
