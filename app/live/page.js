@@ -6,9 +6,31 @@ import dynamic from 'next/dynamic'
 import BottomNav from '@/components/BottomNav'
 import TopBar from '@/components/TopBar'
 import TripUpdates from '@/components/TripUpdates'
-import { getLiveTrips, getTripPositions, sharePosition, stopSharing, subscribeToPositions, getMyId, appendTrackPoint } from '@/lib/api'
-import { watchPosition, haversineKm } from '@/lib/geo'
+import {
+  getLiveTrips,
+  getTripPositions,
+  sharePosition,
+  setRideStatus,
+  stopSharing,
+  subscribeToPositions,
+  getMyId,
+  appendTrackPoint,
+} from '@/lib/api'
+import { watchPosition, haversineKm, relativePosition } from '@/lib/geo'
+import { RIDE_STATUSES, rideStatus, statusColor, DEFAULT_STATUS } from '@/lib/rideStatus'
 import styles from './live.module.css'
+
+// "450 m" up close, "1.2 km" at range — the number a rider actually reads.
+function gap(km) {
+  if (km == null) return null
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`
+}
+
+// Directions to a rider's live spot, in whatever maps app the phone has.
+function navigateTo(lat, lng) {
+  if (lat == null || lng == null) return
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank', 'noopener')
+}
 
 // The map engine is browser-only and heavy — never render or import it on the server.
 const LiveMap = dynamic(() => import('./LiveMap'), { ssr: false })
@@ -111,6 +133,9 @@ function LiveRide({ trip, myId, onBack }) {
   const [positions, setPositions] = useState([])
   const [myPos, setMyPos] = useState(null) // my own freshest fix, shown instantly
   const [sharing, setSharing] = useState(false)
+  const [myStatus, setMyStatus] = useState(DEFAULT_STATUS) // my broadcast status
+  const [openRider, setOpenRider] = useState(null) // rider whose actions are expanded
+  const [toast, setToast] = useState(null) // "John is now Refuelling"
   const [error, setError] = useState(null)
   const [now, setNow] = useState(() => Date.now())
 
@@ -120,6 +145,9 @@ function LiveRide({ trip, myId, onBack }) {
   const lastSent = useRef(0)
   const lastTrack = useRef(null) // last breadcrumb saved to the recorded trail
   const wakeLock = useRef(null) // screen wake-lock sentinel, held while sharing
+  const myStatusRef = useRef(DEFAULT_STATUS) // read inside the throttled GPS writer
+  const prevStatus = useRef(new Map()) // riderId -> last status seen, for change alerts
+  const toastTimer = useRef(null)
 
   const refresh = useCallback(() => {
     getTripPositions(trip.id)
@@ -140,11 +168,36 @@ function LiveRide({ trip, myId, onBack }) {
     return () => clearInterval(id)
   }, [])
 
+  const showToast = (text, status) => {
+    setToast({ text, status })
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 5200)
+  }
+
+  /* The notification half of the feature: when a ride-mate's status changes, tell
+     me — so John pulling over to refuel reaches me even while I'm still moving,
+     instead of me wondering why he dropped back. The first batch of positions is
+     only SEEDED (no alert), or every rider already at a status would fire on load. */
+  useEffect(() => {
+    const prev = prevStatus.current
+    const seeding = prev.size === 0
+    for (const p of positions) {
+      if (p.riderId === myId) continue
+      const was = prev.get(p.riderId)
+      prev.set(p.riderId, p.status)
+      if (!seeding && was !== undefined && was !== p.status && p.status !== DEFAULT_STATUS) {
+        const s = rideStatus(p.status)
+        showToast(p.status === 'help' ? `${p.name} needs help` : `${p.name} is ${s.label.toLowerCase()}`, p.status)
+      }
+    }
+  }, [positions, myId])
+
   // Leaving the screen must always release the GPS and pull my pin.
   useEffect(() => {
     return () => {
       stopWatch.current?.()
       releaseWake()
+      clearTimeout(toastTimer.current)
       if (sharingRef.current) stopSharing(trip.id)
     }
   }, [trip.id])
@@ -183,7 +236,7 @@ function LiveRide({ trip, myId, onBack }) {
         // Throttle writes: GPS fires ~1/s, but co-riders don't need that firehose.
         if (sharingRef.current && t - lastSent.current > 2500) {
           lastSent.current = t
-          sharePosition(trip.id, p).catch(() => {})
+          sharePosition(trip.id, { ...p, status: myStatusRef.current }).catch(() => {})
         }
         // Record the trail for the finished-ride share card. Drop a breadcrumb
         // only once the rider has actually moved ~25 m (or after a long pause),
@@ -207,11 +260,22 @@ function LiveRide({ trip, myId, onBack }) {
     sharingRef.current = false
     setSharing(false)
     setMyPos(null)
+    setMyStatus(DEFAULT_STATUS)
+    myStatusRef.current = DEFAULT_STATUS
     lastTrack.current = null
     stopWatch.current?.()
     stopWatch.current = null
     releaseWake()
     stopSharing(trip.id).then(refresh)
+  }
+
+  /* Set my status. It writes straight away (not on the next GPS tick) so the group
+     learns I've pulled over the moment I say so, and reflects on my own pin
+     instantly via myStatusRef feeding the merge below. */
+  const changeStatus = (id) => {
+    setMyStatus(id)
+    myStatusRef.current = id
+    if (sharingRef.current) setRideStatus(trip.id, id).then(refresh).catch(() => {})
   }
 
   // Merge: everyone from the DB, but overlay MY freshest local fix so my own pin
@@ -226,6 +290,7 @@ function LiveRide({ trip, myId, onBack }) {
         name: 'You',
         initials: meRow?.initials ?? 'Y',
         tint: meRow?.tint ?? null,
+        status: myStatusRef.current,
         updatedAt: new Date().toISOString(),
         isMe: true,
       })
@@ -238,6 +303,25 @@ function LiveRide({ trip, myId, onBack }) {
 
   const roster = [...merged].sort((a, b) => (a.isMe ? -1 : b.isMe ? 1 : 0))
 
+  // My position anchors every "how far / ahead or behind" line in the roster.
+  const mePos = myPos || merged.find((p) => p.isMe) || null
+  const myHeading = myPos?.heading ?? merged.find((p) => p.isMe)?.heading ?? null
+
+  // What to say under a rider's name: their status if they've set one, else how
+  // far ahead/behind they are, else just when they were last seen.
+  const riderLine = (p) => {
+    if (p.isMe) return ago(p.updatedAt, now)
+    const s = rideStatus(p.status)
+    if (p.status && p.status !== DEFAULT_STATUS) return `${s.icon} ${s.label}`
+    if (mePos && p.lat != null) {
+      const d = gap(haversineKm(mePos, p))
+      const rel = relativePosition(mePos, p, myHeading)
+      if (d && rel) return `${d} ${rel}`
+      if (d) return `${d} away`
+    }
+    return ago(p.updatedAt, now)
+  }
+
   return (
     <div className={styles.ride}>
       <div className={styles.mapWrap}>
@@ -248,6 +332,19 @@ function LiveRide({ trip, myId, onBack }) {
           </svg>
         </button>
         <div className={styles.mapTitle}>{trip.title}</div>
+
+        {/* A ride-mate's status change, surfaced over the map so it reaches you
+            even while you're moving — the reel's "everyone gets a notification". */}
+        {toast && (
+          <button
+            className={styles.toast}
+            style={{ borderColor: statusColor(toast.status) }}
+            onClick={() => setToast(null)}
+          >
+            <span className={styles.toastDot} style={{ background: statusColor(toast.status) }} />
+            {toast.text}
+          </button>
+        )}
       </div>
 
       <div className={styles.sheet}>
@@ -273,6 +370,28 @@ function LiveRide({ trip, myId, onBack }) {
           </button>
         </div>
 
+        {/* My status picker — the "John updates his status" half. Only while I'm
+            live, because a status without a pin on the map has nowhere to show. */}
+        {sharing && (
+          <div className={styles.statusBar}>
+            <p className="sec-label">Tell the group</p>
+            <div className={styles.statusChips}>
+              {RIDE_STATUSES.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={styles.statusChip}
+                  data-on={myStatus === s.id || undefined}
+                  style={myStatus === s.id ? { borderColor: statusColor(s.id), color: statusColor(s.id) } : undefined}
+                  onClick={() => changeStatus(s.id)}
+                >
+                  <span aria-hidden="true">{s.icon}</span> {s.short}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* The organiser's live updates — the rider's half of the loop. */}
         <div className={styles.updates}>
           <p className="sec-label">From the organiser</p>
@@ -285,30 +404,60 @@ function LiveRide({ trip, myId, onBack }) {
               Be the first to go live — tap <b>Go live</b> and your ride-mates will see you move.
             </li>
           ) : (
-            roster.map((p) => (
-              <li key={p.riderId}>
-                {/* Tapping a rider flies the map to their pin. */}
-                <button
-                  type="button"
-                  className={styles.rider}
-                  data-me={p.isMe}
-                  onClick={() => mapRef.current?.focusRider(p.riderId)}
-                  aria-label={`Center map on ${p.isMe ? 'you' : p.name}`}
-                >
-                  <span className={styles.avatar} style={{ background: p.isMe ? 'var(--accent)' : p.tint || '#5b8def' }}>
-                    {p.initials}
-                  </span>
-                  <div className={styles.riderInfo}>
-                    <b>{p.isMe ? 'You' : p.name}</b>
-                    <span className={styles.riderSub}>{ago(p.updatedAt, now)}</span>
-                  </div>
-                  <span className={styles.speed}>
-                    <b>{p.speedKmh}</b>
-                    <em>km/h</em>
-                  </span>
-                </button>
-              </li>
-            ))
+            roster.map((p) => {
+              const on = openRider === p.riderId
+              return (
+                <li key={p.riderId}>
+                  {/* Tapping a rider flies the map to their pin, and — for a
+                      ride-mate — opens their actions (navigate / message). */}
+                  <button
+                    type="button"
+                    className={styles.rider}
+                    data-me={p.isMe}
+                    onClick={() => {
+                      mapRef.current?.focusRider(p.riderId)
+                      if (!p.isMe) setOpenRider(on ? null : p.riderId)
+                    }}
+                    aria-label={`Center map on ${p.isMe ? 'you' : p.name}`}
+                  >
+                    <span
+                      className={styles.avatar}
+                      style={{ background: p.isMe ? 'var(--accent)' : p.tint || '#5b8def' }}
+                    >
+                      {p.initials}
+                    </span>
+                    <div className={styles.riderInfo}>
+                      <b>{p.isMe ? 'You' : p.name}</b>
+                      <span
+                        className={styles.riderSub}
+                        style={p.status && p.status !== DEFAULT_STATUS ? { color: statusColor(p.status) } : undefined}
+                      >
+                        {riderLine(p)}
+                      </span>
+                    </div>
+                    <span className={styles.speed}>
+                      <b>{p.speedKmh}</b>
+                      <em>km/h</em>
+                    </span>
+                  </button>
+
+                  {on && !p.isMe && (
+                    <div className={styles.riderActions}>
+                      <button
+                        type="button"
+                        onClick={() => navigateTo(p.lat, p.lng)}
+                        disabled={p.lat == null}
+                      >
+                        <NavIcon /> Navigate
+                      </button>
+                      <Link href={`/trip/${trip.id}/group/`}>
+                        <ChatIcon /> Message
+                      </Link>
+                    </div>
+                  )}
+                </li>
+              )
+            })
           )}
         </ul>
 
@@ -327,6 +476,22 @@ function ago(iso, now) {
   if (s < 60) return `${s}s ago`
   const m = Math.floor(s / 60)
   return `${m}m ago`
+}
+
+function NavIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M17 3 3 9l6 2 2 6 6-14Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ChatIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4 4h12a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 16 14H8l-4 3v-3a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 4 4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
 function Chevron() {

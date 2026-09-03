@@ -1,6 +1,7 @@
 'use client'
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { rideStatus, statusColor, DEFAULT_STATUS } from '@/lib/rideStatus'
 import styles from './live.module.css'
 
 /* The street map. Leaflet is loaded from its CDN on demand — it never ships in
@@ -43,7 +44,7 @@ function loadLeaflet() {
 // rider is moving and the fix knows their heading, a small arrow rides the rim
 // pointing the way they're travelling. Built as raw HTML because Leaflet renders
 // markers in its own panes, out of reach of the CSS-module scope.
-function pinHtml({ initials, tint, speedKmh, heading, isMe }) {
+function pinHtml({ initials, tint, speedKmh, heading, status, isMe }) {
   const color = isMe ? '#ff6a2b' : tint || '#5b8def'
   const ring = isMe
     ? 'box-shadow:0 0 0 3px rgba(255,106,43,.35),0 4px 12px rgba(0,0,0,.5);'
@@ -57,14 +58,26 @@ function pinHtml({ initials, tint, speedKmh, heading, isMe }) {
           border-bottom:8px solid ${color};transform:translateX(-50%) rotate(${heading}deg);
           transform-origin:50% 26px;"></div>`
       : ''
+
+  // The tag under the pin is the STATUS when there is one to report — the whole
+  // point of the feature: you see WHY someone stopped, not just that they did.
+  // Plain riders fall back to their speed.
+  const s = rideStatus(status)
+  const tag =
+    status && status !== DEFAULT_STATUS
+      ? `<div style="margin-top:3px;padding:1px 7px;border-radius:6px;background:${statusColor(status)};
+          color:#0a0c10;font:700 10px/1.4 var(--display,sans-serif);white-space:nowrap;">
+          ${s.icon} ${s.tag}</div>`
+      : `<div style="margin-top:3px;padding:1px 6px;border-radius:6px;background:rgba(10,12,16,.86);
+          color:#fff;font:600 10px/1.4 var(--mono,monospace);white-space:nowrap;letter-spacing:.02em;">
+          ${speedKmh} km/h</div>`
+
   return `
     <div style="display:flex;flex-direction:column;align-items:center;transform:translateY(-4px)">
       <div style="position:relative;width:34px;height:34px;border-radius:50%;background:${color};color:#fff;
         display:flex;align-items:center;justify-content:center;font:700 13px/1 var(--display,sans-serif);
         border:2px solid #fff;${ring}">${initials}${arrow}</div>
-      <div style="margin-top:3px;padding:1px 6px;border-radius:6px;background:rgba(10,12,16,.86);
-        color:#fff;font:600 10px/1.4 var(--mono,monospace);white-space:nowrap;letter-spacing:.02em;">
-        ${speedKmh} km/h</div>
+      ${tag}
     </div>`
 }
 
