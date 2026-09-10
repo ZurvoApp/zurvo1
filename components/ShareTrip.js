@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getRideTrack, getMe } from '@/lib/api'
 import { trackStats } from '@/lib/geo'
-import { renderTripStory, canvasToBlob } from '@/lib/story'
+import { renderTripStory, canvasToBlob, loadImage } from '@/lib/story'
 import styles from './sharetrip.module.css'
 
 /* SHARE A FINISHED RIDE.
@@ -38,10 +38,22 @@ export default function ShareTrip({ trip, onClose }) {
           /* keep the default */
         }
         const stats = trackStats(track)
-        const canvas = await renderTripStory({ trip, track, stats, riderName })
+
+        // Strava-style photo background from the ride's own image. If it's
+        // cross-origin and can't be exported, toDataURL throws — fall back to a
+        // clean tile-less render so sharing still works.
+        const bg = await loadImage(trip.photo)
+        let canvas = await renderTripStory({ trip, track, stats, riderName, bg })
+        let url
+        try {
+          url = canvas.toDataURL('image/png')
+        } catch {
+          canvas = await renderTripStory({ trip, track, stats, riderName, bg: null })
+          url = canvas.toDataURL('image/png')
+        }
         if (!live) return
         canvasRef.current = canvas
-        setPreview(canvas.toDataURL('image/png'))
+        setPreview(url)
         setStatus('ready')
       } catch (e) {
         if (live) setStatus('error')
