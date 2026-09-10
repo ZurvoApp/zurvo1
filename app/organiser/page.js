@@ -8,7 +8,7 @@ import ModeSwitch from '@/components/ModeSwitch'
 import Reveal from '@/components/Reveal'
 import TripUpdates from '@/components/TripUpdates'
 import { CoverImage } from '@/components/CoverImage'
-import { getMyOrganisedTrips, finishTrip } from '@/lib/api'
+import { getMyOrganisedTrips, finishTrip, deleteTrip } from '@/lib/api'
 import { rupees } from '@/lib/data'
 import { copy } from '@/lib/verticals'
 import styles from './organiser.module.css'
@@ -88,7 +88,7 @@ export default function OrganiserHub() {
                 </Reveal>
                 {live.map((t, i) => (
                   <Reveal key={t.id} i={2 + i}>
-                    <LiveTripCard trip={t} onFinished={load} />
+                    <LiveTripCard trip={t} reload={load} />
                   </Reveal>
                 ))}
               </>
@@ -115,23 +115,40 @@ export default function OrganiserHub() {
   )
 }
 
-function LiveTripCard({ trip, onFinished }) {
+function LiveTripCard({ trip, reload }) {
   const [open, setOpen] = useState(false) // the live-updates panel
   const [finishing, setFinishing] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState(null)
   const c = copy(trip.vertical)
   const fill = trip.seatsTotal > 0 ? Math.round((trip.seatsTaken / trip.seatsTotal) * 100) : 0
+  // Once anyone has booked, deleting would erase paid bookings held in escrow —
+  // that has to go through cancel/refund, not a delete. Empty trips delete freely.
+  const hasRiders = (trip.seatsTaken || 0) > 0
 
   const finish = async () => {
     setFinishing(true)
     setError(null)
     try {
       await finishTrip(trip.id)
-      onFinished()
+      reload()
     } catch (e) {
       setError(e?.message || 'Could not finish the trip.')
       setFinishing(false)
+    }
+  }
+
+  const remove = async () => {
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteTrip(trip.id)
+      reload() // the card disappears with the list refresh
+    } catch (e) {
+      setError(e?.message || 'Could not delete the trip.')
+      setDeleting(false)
     }
   }
 
@@ -173,6 +190,12 @@ function LiveTripCard({ trip, onFinished }) {
         </button>
       </div>
 
+      <div className={styles.subActions}>
+        <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)} disabled={deleting}>
+          {deleting ? 'Deleting…' : 'Delete trip'}
+        </button>
+      </div>
+
       {open && (
         <div className={styles.panel}>
           <TripUpdates tripId={trip.id} canPost />
@@ -193,6 +216,39 @@ function LiveTripCard({ trip, onFinished }) {
               {finishing ? 'Finishing…' : 'Yes, finish it'}
             </button>
           </div>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className={styles.confirm}>
+          {hasRiders ? (
+            <>
+              <p>
+                <b>{trip.seatsTaken}</b> {trip.seatsTaken === 1 ? 'rider has' : 'riders have'} already booked{' '}
+                <b>{trip.title}</b>. Cancel and refund their seats first — deleting now would wipe bookings with money
+                held in escrow.
+              </p>
+              <div className={styles.confirmBtns}>
+                <button className={styles.ghost} onClick={() => setConfirmDelete(false)}>
+                  Got it
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p>
+                Delete <b>{trip.title}</b>? This removes the trip and its channel for good. You can’t undo it.
+              </p>
+              <div className={styles.confirmBtns}>
+                <button className={styles.ghost} onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                  Keep it
+                </button>
+                <button className="cta" data-danger onClick={remove} disabled={deleting} data-busy={deleting}>
+                  {deleting ? 'Deleting…' : 'Delete trip'}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
