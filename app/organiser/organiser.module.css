@@ -189,6 +189,34 @@
   color: var(--stop);
 }
 
+/* Delete sits apart from the three primary actions — it's destructive, and it
+   shouldn't compete for a quarter of the action row. Quiet by default, red on
+   intent. */
+.subActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.deleteBtn {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  color: var(--t-3);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color var(--t-fast) var(--ease);
+}
+.deleteBtn:hover {
+  color: var(--stop);
+}
+.deleteBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .panel {
   margin-top: 14px;
   padding-top: 14px;
@@ -217,6 +245,12 @@
   flex: 1;
   padding: 11px;
   font-size: 14px;
+}
+/* The delete confirmation's primary button is destructive, so it wears the stop
+   colour instead of the accent. */
+.confirmBtns :global(.cta[data-danger]) {
+  background: var(--stop);
+  color: #fff;
 }
 .ghost {
   flex: 1;
